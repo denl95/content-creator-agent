@@ -1,6 +1,6 @@
 import { tool } from "@langchain/core/tools";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { ChatOpenAI } from "@langchain/openai";
+import { createAgent } from "langchain";
 import "dotenv/config";
 import { z } from "zod";
 
@@ -22,8 +22,8 @@ const model = new ChatOpenAI({
   temperature: 0,
 });
 
-export const graph = createReactAgent({
-  llm: model,
+export const graph = createAgent({
+  model,
   tools: [getWeather],
 });
 
