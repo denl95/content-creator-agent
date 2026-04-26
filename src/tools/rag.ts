@@ -4,6 +4,7 @@ import { Document } from '@langchain/core/documents';
 import { tool } from '@langchain/core/tools';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import type { Collection, CollectionMetadata } from 'chromadb';
 import { z } from 'zod';
 import { type BrandPage, fetchBrandPages } from '../mcp/notion';
 
@@ -13,7 +14,7 @@ const COLLECTION = process.env.CHROMA_COLLECTION ?? 'brand';
 const _chromaUrl = new URL(process.env.CHROMA_URL ?? 'http://localhost:8000');
 const CHROMA_PARAMS = {
   host: _chromaUrl.hostname,
-  port: _chromaUrl.port ? Number(_chromaUrl.port) : (_chromaUrl.protocol === 'https:' ? 443 : 8000),
+  port: _chromaUrl.port ? Number(_chromaUrl.port) : _chromaUrl.protocol === 'https:' ? 443 : 8000,
   ssl: _chromaUrl.protocol === 'https:',
 };
 
@@ -78,33 +79,49 @@ function corpusHash(docs: SourceDoc[]): string {
   return h.digest('hex');
 }
 
-async function buildVectorStore(forceReindex = false): Promise<Chroma> {
-  const docs = (await loadFromNotion()) ?? (await loadFromLocal());
-  const hash = corpusHash(docs);
-
+async function createVectorStore(): Promise<{ store: Chroma; collection: Collection }> {
   const embeddings = new OpenAIEmbeddings({ model: 'text-embedding-3-small' });
   const store = new Chroma(embeddings, {
     collectionName: COLLECTION,
     clientParams: CHROMA_PARAMS,
-    collectionMetadata: { 'hnsw:space': 'cosine', corpus_hash: hash },
+    collectionMetadata: { 'hnsw:space': 'cosine' },
   });
 
-  await store.ensureCollection();
+  const collection = await store.ensureCollection();
+  return { store, collection };
+}
 
-  // Compare current hash with the stored one; reindex only if changed
-  // biome-ignore lint/suspicious/noExplicitAny: chroma collection type is loose
-  const collection = (store as unknown as { collection: any }).collection;
-  const existingMeta = collection?.metadata ?? {};
-  const cached = existingMeta.corpus_hash;
+function collectionMetadata(collection: Collection): CollectionMetadata {
+  return collection.metadata ?? {};
+}
 
-  if (!forceReindex && cached === hash) {
-    console.log(`[rag] Chroma collection "${COLLECTION}" is up-to-date (hash=${hash.slice(0, 8)})`);
+async function cachedCorpusHash(collection: Collection): Promise<string | null> {
+  const meta = collectionMetadata(collection);
+  if (typeof meta.corpus_hash !== 'string' || meta.corpus_hash.length === 0) return null;
+  if ((await collection.count()) === 0) return null;
+  return meta.corpus_hash;
+}
+
+async function buildVectorStore(forceReindex = false): Promise<Chroma> {
+  const { store, collection } = await createVectorStore();
+  const cachedHash = await cachedCorpusHash(collection);
+
+  if (!forceReindex && cachedHash) {
+    console.log(
+      `[rag] Chroma collection "${COLLECTION}" is up-to-date (hash=${cachedHash.slice(0, 8)})`,
+    );
     return store;
   }
+
+  const docs = (await loadFromNotion()) ?? (await loadFromLocal());
+  const hash = corpusHash(docs);
+  const existingMeta = collectionMetadata(collection);
 
   console.log(
     `[rag] Reindexing Chroma collection "${COLLECTION}" — ${docs.length} source docs (hash=${hash.slice(0, 8)})`,
   );
+
+  const nextMetadata = { ...existingMeta, 'hnsw:space': 'cosine', corpus_hash: hash };
 
   // Wipe existing collection and rebuild
   try {
@@ -125,6 +142,7 @@ async function buildVectorStore(forceReindex = false): Promise<Chroma> {
       }),
   );
   await store.addDocuments(documents);
+  await collection.modify({ metadata: nextMetadata });
 
   return store;
 }

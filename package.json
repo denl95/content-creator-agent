@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test:judge": "bun test tests/judge",
     "reindex": "bun run scripts/reindex.ts",
+    "upload-prompts": "bun run scripts/upload-prompts.ts",
     "upload-brand": "bun run scripts/upload-brand.ts"
   },
   "devDependencies": {

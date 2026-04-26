@@ -2,17 +2,10 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { createAgent } from 'langchain';
 import { model } from '../model';
 import { traceOptions } from '../observability';
-import { buildStrategistMessage, STRATEGIST_SYSTEM } from '../prompts/strategist';
+import { compileManagedPrompt, strategistVariables } from '../prompts/managed';
 import { ContentPlanSchema } from '../schemas';
 import type { GraphStateType } from '../state';
 import { brandStyleRetriever, searchTool } from '../tools/index';
-
-const strategistAgent = createAgent({
-  model,
-  tools: [searchTool, brandStyleRetriever],
-  responseFormat: ContentPlanSchema,
-  systemPrompt: STRATEGIST_SYSTEM,
-});
 
 export async function strategist(
   state: GraphStateType,
@@ -20,21 +13,38 @@ export async function strategist(
 ): Promise<Partial<GraphStateType>> {
   const threadId = config?.configurable?.thread_id as string | undefined;
   const isRevision = Boolean(state.userPlanFeedback);
+  const prompt = await compileManagedPrompt(
+    'strategist',
+    strategistVariables(state.brief, state.userPlanFeedback),
+  );
+  const systemPrompt = prompt.messages.find((message) => message.role === 'system')?.content;
+  const messages = prompt.messages.filter((message) => message.role !== 'system');
+  const strategistAgent = createAgent({
+    model,
+    tools: [searchTool, brandStyleRetriever],
+    responseFormat: ContentPlanSchema,
+    ...(systemPrompt ? { systemPrompt } : {}),
+  });
 
   const result = await strategistAgent.invoke(
     {
-      messages: [
-        { role: 'user', content: buildStrategistMessage(state.brief, state.userPlanFeedback) },
-      ],
+      messages,
     },
     {
       runName: isRevision ? 'strategist-revision' : 'strategist',
       tags: ['strategist', isRevision ? 'revision' : 'initial'],
-      ...traceOptions(threadId, { agent: 'strategist', is_revision: isRevision }),
+      ...traceOptions(threadId, {
+        agent: 'strategist',
+        is_revision: isRevision,
+        ...(prompt.langfusePrompt ? { langfusePrompt: prompt.langfusePrompt } : {}),
+      }),
     },
   );
 
-  if (!result.structuredResponse) throw new Error('strategist: LLM returned no structured response — check model and responseFormat');
+  if (!result.structuredResponse)
+    throw new Error(
+      'strategist: LLM returned no structured response — check model and responseFormat',
+    );
 
   return {
     plan: result.structuredResponse,

@@ -59,6 +59,8 @@ OPENAI_MODEL=gpt-4o-mini        # optional, defaults to gpt-4o-mini
 LANGFUSE_SECRET_KEY=
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_HOST=https://cloud.langfuse.com
+LANGFUSE_PROMPT_PREFIX=content-creator-agent
+LANGFUSE_PROMPT_LABEL=production
 
 # Chroma vector store
 CHROMA_URL=http://localhost:8000
@@ -78,13 +80,13 @@ The brand RAG corpus is stored in [Chroma](https://www.trychroma.com/). Run it l
 docker run -d -p 8000:8000 --name chroma chromadb/chroma
 ```
 
-The collection (`brand` by default) is created and indexed automatically on first run, and re-indexed only when the source content's hash changes.
+The collection (`brand` by default) is created and indexed automatically on first run. Later runs reuse the saved collection unless you explicitly refresh it with `bun run reindex`.
 
 **4. Brand source: Notion (recommended) or local files**
 
 The Strategist queries a vector store built from your brand assets. There are two sources:
 
-- **Notion (recommended)** — set `NOTION_TOKEN` and `NOTION_BRAND_PAGE_ID`. Create an integration at [notion.so/profile/integrations](https://www.notion.so/profile/integrations), share the parent brand page with it, and the agent will fetch all child pages on startup via the [Notion MCP server](https://github.com/makenotion/notion-mcp-server).
+- **Notion (recommended)** — set `NOTION_TOKEN` and `NOTION_BRAND_PAGE_ID`. Create an integration at [notion.so/profile/integrations](https://www.notion.so/profile/integrations), share the parent brand page with it, and the agent will fetch all child pages via the [Notion MCP server](https://github.com/makenotion/notion-mcp-server) when the Chroma collection needs to be built or explicitly refreshed.
 - **Local files (fallback)** — if Notion is unset or unreachable, the agent reads `data/brand/*.md` from disk. The repo ships with a sample corpus describing **Lumen**, a fictional AI development agency that builds custom LLM apps for small businesses. All brand content and example posts are written in Ukrainian.
 
 **5. Notion drafts database (optional, for publishing)**
@@ -198,6 +200,16 @@ graph.stream(new Command({ resume: { approved: false, feedback: "..." } }), conf
 
 Traces are sent to [Langfuse](https://cloud.langfuse.com) when `LANGFUSE_SECRET_KEY` and `LANGFUSE_PUBLIC_KEY` are set. Each LLM call is tagged with the agent name, iteration number, and thread ID.
 
+Upload the local strategist, writer, and editor prompts to Langfuse Prompt Management:
+
+```bash
+bun run upload-prompts
+```
+
+By default this writes prompt versions named `content-creator-agent/strategist`, `content-creator-agent/writer`, and `content-creator-agent/editor` with the `production` label. Override with `LANGFUSE_PROMPT_PREFIX` or `LANGFUSE_PROMPT_LABEL` if needed.
+
+At runtime, the Strategist, Writer, and Editor fetch their chat prompts from Langfuse using that prefix and label. If Langfuse is not configured or temporarily unavailable, the local prompts in `src/prompts/` are used as fallbacks.
+
 Each node emits a named run:
 
 | Node | `runName` | Tags |
@@ -274,7 +286,7 @@ output/             — approved articles written by the pipeline
 
 - **Iteration cap:** Editor loop runs at most 5 times. If the draft is still `REVISION_NEEDED` at iteration 5, it is saved to `output/` with an `-unapproved` suffix alongside a `.review.md` sidecar with the final issues.
 - **HITL:** No cap on plan revisions — the user controls this loop.
-- **RAG:** Uses Chroma (local Docker, default `http://localhost:8000`). Embeddings persist between runs; the collection is re-indexed only when the source content hash changes. Run `bun run reindex` to force a rebuild.
+- **RAG:** Uses Chroma (local Docker, default `http://localhost:8000`). Embeddings persist between runs; a non-empty collection with a saved source hash is reused without loading Notion. Run `bun run reindex` to refresh the source corpus and rebuild the collection.
 - **Checkpointer:** Uses `MemorySaver` (in-process). Threads do not survive process restart. Swap to `SqliteSaver` or `@langchain/langgraph-checkpoint-postgres` for persistence across runs.
 - **Search:** DuckDuckGo, max 5 results per call. Rate-limit retries only; non-rate-limit errors are not retried.
 - **Publisher:** Best-effort — if the Notion API call fails, the run does not error. Output is still saved to `./output/`.
