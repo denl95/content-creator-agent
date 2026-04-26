@@ -11,8 +11,8 @@ Scoring rubric (all scores 0.0–1.0):
 - structure_score: 0.0–0.3 = more than 2 outline items missing or severely underdeveloped. 0.4–0.7 = all items present but 1–2 are superficial. 0.8–1.0 = every outline item is covered with adequate depth.
 
 Verdict rules:
-- Return APPROVED only if ALL three scores are ≥ 0.8 AND no critical issues remain.
-- Return REVISION_NEEDED otherwise.
+- Return APPROVED if ALL three scores are ≥ 0.8. No exceptions.
+- Return REVISION_NEEDED if ANY score is below 0.8.
 - When returning REVISION_NEEDED, the issues list must be specific and actionable — "improve tone" is not acceptable; "section 2 uses the forbidden phrase 'game-changing'" is.
 - When returning APPROVED, issues must be empty.`;
 

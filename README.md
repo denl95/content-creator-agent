@@ -13,7 +13,8 @@ flowchart LR
     Writer --> Editor
     Editor -- REVISION_NEEDED --> Writer
     Editor -- APPROVED / iter>=5 --> Finalizer
-    Finalizer --> END
+    Finalizer --> Publisher
+    Publisher --> END
 ```
 
 **Pattern:** Prompt Chaining (Strategist → HITL → Writer) + Evaluator-Optimizer loop (Writer ↔ Editor), capped at 5 iterations.
@@ -23,7 +24,7 @@ flowchart LR
 | Agent | Role | Tools | Structured output |
 |---|---|---|---|
 | **Strategist** | Researches topic, produces content plan | `web_search`, `brand_style_lookup` (RAG) | `ContentPlan` |
-| **Writer** | Writes full draft from approved plan | `web_search`, `save_content` | `DraftContent` |
+| **Writer** | Writes full draft from approved plan | `web_search` | `DraftContent` |
 | **Editor** | Scores draft, returns actionable feedback | — | `EditFeedback` |
 
 ### Structured output contracts
@@ -58,11 +59,46 @@ OPENAI_MODEL=gpt-4o-mini        # optional, defaults to gpt-4o-mini
 LANGFUSE_SECRET_KEY=
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_HOST=https://cloud.langfuse.com
+
+# Chroma vector store
+CHROMA_URL=http://localhost:8000
+CHROMA_COLLECTION=brand
+
+# Notion MCP integration (optional — falls back to local files if unset)
+NOTION_TOKEN=
+NOTION_BRAND_PAGE_ID=
+NOTION_DRAFTS_DATABASE_ID=
 ```
 
-**3. Seed the RAG corpus** (already included)
+**3. Start Chroma**
 
-Brand docs live in `data/brand/` — `brand.md`, `style_guide.md`, and 7 example posts. The Strategist retrieves from these on every run. To use your own brand, replace the files there.
+The brand RAG corpus is stored in [Chroma](https://www.trychroma.com/). Run it locally with Docker:
+
+```bash
+docker run -d -p 8000:8000 --name chroma chromadb/chroma
+```
+
+The collection (`brand` by default) is created and indexed automatically on first run, and re-indexed only when the source content's hash changes.
+
+**4. Brand source: Notion (recommended) or local files**
+
+The Strategist queries a vector store built from your brand assets. There are two sources:
+
+- **Notion (recommended)** — set `NOTION_TOKEN` and `NOTION_BRAND_PAGE_ID`. Create an integration at [notion.so/profile/integrations](https://www.notion.so/profile/integrations), share the parent brand page with it, and the agent will fetch all child pages on startup via the [Notion MCP server](https://github.com/makenotion/notion-mcp-server).
+- **Local files (fallback)** — if Notion is unset or unreachable, the agent reads `data/brand/*.md` from disk. The repo ships with a sample corpus describing **Lumen**, a fictional AI development agency that builds custom LLM apps for small businesses. All brand content and example posts are written in Ukrainian.
+
+**5. Notion drafts database (optional, for publishing)**
+
+To auto-publish each finalized draft to Notion, create a database with these properties and share it with the integration, then set `NOTION_DRAFTS_DATABASE_ID`:
+
+| Property | Type |
+|---|---|
+| `Name` | Title |
+| `Channel` | Select |
+| `Word Count` | Number |
+| `Status` | Select (with options `Approved`, `Unapproved`) |
+
+If `NOTION_DRAFTS_DATABASE_ID` is unset, the publisher node is a no-op.
 
 ## Run
 
@@ -70,10 +106,10 @@ Brand docs live in `data/brand/` — `brand.md`, `style_guide.md`, and 7 example
 
 ```bash
 bun run start -- \
-  --topic "AI in accounting" \
+  --topic "Як LLM-асистент замінив менеджера підтримки" \
   --channel blog \
-  --tone professional \
-  --audience "SMB owners" \
+  --tone accessible \
+  --audience "власники малого бізнесу" \
   --word-count 1200
 ```
 
@@ -82,11 +118,44 @@ Options:
 | Flag | Values | Required |
 |---|---|---|
 | `--topic` | any string | yes |
-| `--channel` | `blog` / `linkedin` / `twitter` | yes |
+| `--channel` | `blog` / `linkedin` / `twitter` / `instagram` / `threads` | yes |
 | `--tone` | any string | yes |
 | `--audience` | any string | yes |
 | `--word-count` | integer | yes |
 | `--verbose` | flag | no |
+
+More examples:
+
+**LinkedIn post:**
+```bash
+bun run start -- \
+  --topic "Чому малий бізнес програє без автоматизації підтримки" \
+  --channel linkedin \
+  --tone professional \
+  --audience "підприємці" \
+  --word-count 300
+```
+
+**Instagram caption:**
+```bash
+bun run start -- \
+  --topic "5 ознак що вашому бізнесу потрібен AI-асистент" \
+  --channel instagram \
+  --tone friendly \
+  --audience "власники малого бізнесу" \
+  --word-count 150
+```
+
+**With verbose output** (shows tool calls, editor scores, issues):
+```bash
+bun run start -- \
+  --topic "Автоматизація онбордингу клієнтів через LLM" \
+  --channel blog \
+  --tone accessible \
+  --audience "стартапери" \
+  --word-count 800 \
+  --verbose
+```
 
 ### LangGraph Studio
 
@@ -181,19 +250,31 @@ src/
   nodes/            — strategist, writer, editor, hitl, finalizer
   prompts/          — system prompts and message builders
   routing/          — editorRoute (REVISION_NEEDED → writer, else → finalizer)
-  tools/            — web_search, brand_style_lookup (RAG), save_content
+  tools/            — web_search (with retry), brand_style_lookup (Chroma RAG), save_content
+  mcp/              — Notion MCP client + brand fetch / publish helpers
+scripts/
+  reindex.ts        — force-rebuild the Chroma collection from the brand corpus
 data/
-  brand/            — style_guide.md, brand.md, examples/ (RAG corpus)
+  brand/            — fallback brand corpus (used if Notion is unset)
 tests/
   judge/            — LLM-as-a-Judge test files + shared schema
   fixtures/         — briefs.ts, plans.ts, bad-draft.md
 output/             — approved articles written by the pipeline
 ```
 
+## Reliability
+
+- **Null-state guards:** `editor`, `writer`, `strategist`, and `finalizer` throw clear errors if upstream state (plan/draft/structuredResponse) is missing — silent failures are no longer possible.
+- **Search retries:** `web_search` retries on DuckDuckGo rate-limit errors with exponential backoff (2s, 4s, 6s) before giving up.
+- **RAG error context:** brand corpus file-read failures name the exact file that broke.
+- **Filename slug:** Unicode-aware (`\p{L}\p{N}`) so Ukrainian and other non-Latin topics produce real filenames; falls back to `content-<timestamp>` only if the slug is genuinely empty.
+- **Editor scoring rubric:** explicit 0.0–0.3 / 0.4–0.7 / 0.8–1.0 bands per dimension instead of vague descriptions, for more consistent verdicts.
+
 ## Limits
 
 - **Iteration cap:** Editor loop runs at most 5 times. If the draft is still `REVISION_NEEDED` at iteration 5, it is saved to `output/` with an `-unapproved` suffix alongside a `.review.md` sidecar with the final issues.
 - **HITL:** No cap on plan revisions — the user controls this loop.
-- **RAG:** Uses in-memory vector store (`MemoryVectorStore`) — embeddings are rebuilt on each process start. Swap to Chroma or Postgres for persistence.
-- **Checkpointer:** Uses `MemorySaver` (in-process). Threads do not survive process restart. Swap to `SqliteSaver` for persistence across runs.
-- **Search:** DuckDuckGo, max 5 results per call. No retry or rate-limit handling.
+- **RAG:** Uses Chroma (local Docker, default `http://localhost:8000`). Embeddings persist between runs; the collection is re-indexed only when the source content hash changes. Run `bun run reindex` to force a rebuild.
+- **Checkpointer:** Uses `MemorySaver` (in-process). Threads do not survive process restart. Swap to `SqliteSaver` or `@langchain/langgraph-checkpoint-postgres` for persistence across runs.
+- **Search:** DuckDuckGo, max 5 results per call. Rate-limit retries only; non-rate-limit errors are not retried.
+- **Publisher:** Best-effort — if the Notion API call fails, the run does not error. Output is still saved to `./output/`.

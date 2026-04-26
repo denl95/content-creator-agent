@@ -4,8 +4,10 @@ import 'dotenv/config';
 import { Command } from '@langchain/langgraph';
 import { z } from 'zod';
 import { graph } from './graph';
+import { shutdownNotionMcp } from './mcp/notion';
 import { shutdown } from './observability';
 import { BriefSchema } from './schemas';
+import { resetSearchCount } from './tools/search';
 import { makeInitialState } from './state';
 
 const ArgsSchema = z.object({
@@ -69,6 +71,12 @@ function formatChunk(nodeName: string, value: unknown, verbose: boolean): string
 
   if (nodeName === 'finalizer' && v.finalContent) {
     return '  Content saved to ./output/';
+  }
+
+  if (nodeName === 'publisher') {
+    const url = typeof v.notionUrl === 'string' ? v.notionUrl : null;
+    if (url) return `  Published to Notion: ${url}`;
+    return '  Publish step skipped';
   }
 
   return verbose ? `  ${JSON.stringify(v).slice(0, 200)}` : null;
@@ -137,6 +145,7 @@ export async function main(): Promise<void> {
   const config = { configurable: { thread_id: threadId } };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let currentInput: any = makeInitialState(brief);
+  resetSearchCount();
 
   try {
     while (true) {
@@ -188,9 +197,11 @@ export async function main(): Promise<void> {
     // Print final result
     const finalState = await graph.getState(config);
     const finalContent = finalState.values.finalContent as string | null;
+    const notionUrl = finalState.values.notionUrl as string | null;
 
     if (finalContent) {
       console.log('\n✓ Done! Content saved to ./output/');
+      if (notionUrl) console.log(`✓ Published to Notion: ${notionUrl}`);
       console.log(`\nFinal preview:\n${finalContent.slice(0, 400)}...`);
     } else {
       console.log('\nPipeline completed — check ./output/ for the saved file.');
@@ -202,5 +213,6 @@ export async function main(): Promise<void> {
   } finally {
     rl.close();
     await shutdown();
+    await shutdownNotionMcp();
   }
 }

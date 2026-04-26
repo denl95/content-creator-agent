@@ -43,6 +43,11 @@ export const GraphState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => null,
   }),
+
+  notionUrl: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
 });
 
 export type GraphStateType = typeof GraphState.State;
