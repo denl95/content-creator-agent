@@ -13,7 +13,7 @@ export const BriefSchema = z.object({
 export const ContentPlanSchema = z.object({
   outline: z
     .array(z.string())
-    .min(1)
+    .min(4)
     .describe('Ordered list of section headings or key points to cover'),
   keywords: z
     .array(z.string())

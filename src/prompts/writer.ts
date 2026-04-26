@@ -12,7 +12,6 @@ Rules:
 4. Stay within ±10% of the target word count.
 5. Use web_search only for concrete facts, statistics, or data points — not for structure or ideas.
 6. Return a DraftContent with the full Markdown body.
-7. Do NOT call save_content — saving happens after editor approval.
 
 If a prior draft and editor issues are provided, you are in revision mode:
 - Address every issue from the editor explicitly.

@@ -9,7 +9,7 @@ Rules:
 3. Your final output must be a ContentPlan — no free-form text outside the structured response.
 4. The outline must have at least 4 items and cover the topic end-to-end for the specified channel.
 5. Keywords should be specific and realistic for the topic (no generic filler).
-6. Tone and target_audience must match the brief exactly unless the brand style guide contradicts it, in which case follow the style guide.
+6. Tone and target_audience must match the brief exactly. If the brand style guide adds stricter channel-specific rules, apply them on top — but never override the brief's tone with a different tone.
 
 If user plan feedback is included in the message, treat every point as a mandatory change and produce a fully revised plan that addresses all feedback.`;
 

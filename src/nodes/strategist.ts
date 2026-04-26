@@ -34,6 +34,8 @@ export async function strategist(
     },
   );
 
+  if (!result.structuredResponse) throw new Error('strategist: LLM returned no structured response — check model and responseFormat');
+
   return {
     plan: result.structuredResponse,
     userPlanFeedback: null,

@@ -7,6 +7,7 @@ const OUTPUT_DIR = 'output';
 
 export const saveContent = tool(
   async ({ filename, content }) => {
+    console.log(`[save_content] "${filename}" (${content.length} chars)`);
     await mkdir(OUTPUT_DIR, { recursive: true });
     const filePath = path.resolve(OUTPUT_DIR, filename);
     await Bun.write(filePath, content);

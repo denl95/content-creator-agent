@@ -18,8 +18,12 @@ async function buildVectorStore(): Promise<MemoryVectorStore> {
 
   const allDocs = await Promise.all(
     files.map(async (file) => {
-      const content = await Bun.file(`${BRAND_DIR}/${file}`).text();
-      return splitter.createDocuments([content], [{ source: file }]);
+      try {
+        const content = await Bun.file(`${BRAND_DIR}/${file}`).text();
+        return splitter.createDocuments([content], [{ source: file }]);
+      } catch (err) {
+        throw new Error(`Failed to read brand file "${file}": ${err instanceof Error ? err.message : String(err)}`);
+      }
     }),
   );
 
@@ -40,9 +44,11 @@ function getStore(): Promise<MemoryVectorStore> {
 
 export const brandStyleRetriever = tool(
   async ({ query }) => {
+    console.log(`[brand_style_lookup] "${query}"`);
     const store = await getStore();
     const results = await store.similaritySearch(query, 4);
     if (results.length === 0) return 'No relevant brand style documents found.';
+    console.log(`[brand_style_lookup] ${results.length} chunks returned`);
     return results.map((doc) => doc.pageContent).join('\n---\n');
   },
   {

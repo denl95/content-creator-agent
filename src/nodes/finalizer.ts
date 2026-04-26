@@ -7,7 +7,7 @@ const OUTPUT_DIR = 'output';
 function slugify(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 60);
 }
@@ -15,9 +15,12 @@ function slugify(text: string): string {
 export async function finalizer(state: GraphStateType): Promise<Partial<GraphStateType>> {
   await mkdir(OUTPUT_DIR, { recursive: true });
 
-  const content = state.draft?.content ?? '';
+  if (!state.draft?.content) throw new Error('finalizer: no draft content to save — check writer node');
+
+  const content = state.draft.content;
+  const topic = state.brief?.topic ?? 'untitled';
   const approved = state.editFeedback?.verdict === 'APPROVED';
-  const slug = slugify(state.brief?.topic ?? '') || `content-${Date.now()}`;
+  const slug = slugify(topic) || `content-${Date.now()}`;
   const suffix = approved ? '' : '-unapproved';
   const filename = `${slug}${suffix}.md`;
   const filePath = path.resolve(OUTPUT_DIR, filename);
@@ -27,9 +30,9 @@ export async function finalizer(state: GraphStateType): Promise<Partial<GraphSta
   if (!approved && state.editFeedback?.issues.length) {
     const reviewPath = path.resolve(OUTPUT_DIR, `${slug}${suffix}.review.md`);
     const reviewContent = [
-      `# Editor review — ${state.brief.topic}`,
+      `# Editor review — ${topic}`,
       '',
-      `Stopped after ${state.iteration} iteration(s) — max iterations reached.`,
+      `Stopped after ${state.iteration} iteration(s) — max iterations reached without approval.`,
       '',
       '## Issues',
       ...state.editFeedback.issues.map((i) => `- ${i}`),

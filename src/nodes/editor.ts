@@ -15,6 +15,9 @@ export async function editor(
 ): Promise<Partial<GraphStateType>> {
   const threadId = config?.configurable?.thread_id as string | undefined;
 
+  if (!state.plan) throw new Error('editor: state.plan is missing — check routing from hitl/strategist');
+  if (!state.draft?.content) throw new Error('editor: state.draft is missing — check routing from writer');
+
   const editFeedback = await editorLLM.invoke(
     [
       { role: 'system', content: EDITOR_SYSTEM },
