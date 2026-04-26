@@ -4,7 +4,7 @@ export const BriefSchema = z.object({
   topic: z.string().describe('The main subject or title for the content piece'),
   target_audience: z.string().describe("Who the content is written for, e.g. 'SMB owners'"),
   channel: z
-    .enum(['blog', 'linkedin', 'twitter'])
+    .enum(['blog', 'linkedin', 'twitter', 'instagram', 'threads'])
     .describe('Publishing channel that determines format and length rules'),
   tone: z.string().describe("Desired tone of voice, e.g. 'professional', 'casual', 'data-driven'"),
   word_count: z.number().int().positive().describe('Target word count for the final article'),

@@ -10,7 +10,7 @@ import { makeInitialState } from './state';
 
 const ArgsSchema = z.object({
   topic: z.string().min(1),
-  channel: z.enum(['blog', 'linkedin', 'twitter']),
+  channel: z.enum(['blog', 'linkedin', 'twitter', 'instagram', 'threads']),
   tone: z.string().min(1),
   audience: z.string().min(1),
   'word-count': z.coerce.number().int().positive(),
@@ -22,7 +22,7 @@ Usage: bun run index.ts [options]
 
 Options:
   --topic       Content topic (required)
-  --channel     Publishing channel: blog | linkedin | twitter (required)
+  --channel     Publishing channel: blog | linkedin | twitter | instagram | threads (required)
   --tone        Tone of voice, e.g. "professional" (required)
   --audience    Target audience, e.g. "SMB owners" (required)
   --word-count  Target word count (required)

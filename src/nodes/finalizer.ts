@@ -17,7 +17,7 @@ export async function finalizer(state: GraphStateType): Promise<Partial<GraphSta
 
   const content = state.draft?.content ?? '';
   const approved = state.editFeedback?.verdict === 'APPROVED';
-  const slug = slugify(state.brief.topic);
+  const slug = slugify(state.brief?.topic ?? '') || `content-${Date.now()}`;
   const suffix = approved ? '' : '-unapproved';
   const filename = `${slug}${suffix}.md`;
   const filePath = path.resolve(OUTPUT_DIR, filename);

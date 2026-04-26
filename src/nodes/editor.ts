@@ -7,7 +7,6 @@ import type { GraphStateType } from '../state';
 
 const editorLLM = new ChatOpenAI({
   model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
-  temperature: 0,
 }).withStructuredOutput(EditFeedbackSchema, { name: 'edit_feedback' });
 
 export async function editor(
