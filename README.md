@@ -97,6 +97,8 @@ The Strategist queries a vector store built from your brand assets. There are tw
 - **Notion (recommended)** — set `NOTION_TOKEN` and `NOTION_BRAND_PAGE_ID`. Create an integration at [notion.so/profile/integrations](https://www.notion.so/profile/integrations), share the parent brand page with it, and the agent will fetch all child pages via the [Notion MCP server](https://github.com/makenotion/notion-mcp-server) when the Chroma collection needs to be built or explicitly refreshed.
 - **Local files (fallback)** — if Notion is unset or unreachable, the agent reads `data/brand/*.md` from disk. The repo ships with a sample corpus describing **Lumen**, a fictional AI development agency that builds custom LLM apps for small businesses. All brand content and example posts are written in Ukrainian.
 
+![Brand page in Notion](screenshots/notion-2.png)
+
 **5. Notion drafts database (optional, for publishing)**
 
 To auto-publish each finalized draft to Notion, create a database with these properties and share it with the integration, then set `NOTION_DRAFTS_DATABASE_ID`:
@@ -109,6 +111,10 @@ To auto-publish each finalized draft to Notion, create a database with these pro
 | `Status` | Select (with options `Approved`, `Unapproved`) |
 
 If `NOTION_DRAFTS_DATABASE_ID` is unset, the publisher node is a no-op.
+
+![Drafts database in Notion](screenshots/notion-1.png)
+
+![Published draft in Notion](screenshots/notion-3.png)
 
 ## Run
 
@@ -220,6 +226,10 @@ Each node emits a named run:
 
 All buffered events are flushed when the process exits cleanly. If Langfuse env vars are unset, the handler is a no-op and the pipeline runs without tracing.
 
+![Langfuse traces](screenshots/trace-1.png)
+
+![Langfuse trace detail](screenshots/trace-2.png)
+
 Upload the local strategist, writer, and editor prompts to Langfuse Prompt Management:
 
 ```bash
@@ -252,6 +262,8 @@ TEST_MODEL=gpt-4o bun run test:judge
 ```
 
 **Estimated cost per full suite run:** ~$0.05–0.20 with `gpt-4o-mini`.
+
+![LLM-as-a-Judge test results](screenshots/llm-as-a-judge.png)
 
 Save results before submission:
 
