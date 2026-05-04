@@ -2,7 +2,7 @@ import { TavilySearch } from '@langchain/tavily';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 
-const MAX_SEARCHES = 10;
+const MAX_SEARCHES = Number(process.env.MAX_SEARCHES ?? 10);
 let searchCount = 0;
 
 export function resetSearchCount(): void {

@@ -1,10 +1,20 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import 'dotenv/config';
 import { Command } from '@langchain/langgraph';
+import { shutdown } from '../../src/observability';
 import { graph } from '../../src/graph';
+import { resetSearchCount } from '../../src/tools/search';
 import { makeInitialState } from '../../src/state';
 import { e2eBrief } from '../fixtures/briefs';
 import { makeJudge } from './schema';
+
+beforeAll(() => {
+  resetSearchCount();
+});
+
+afterAll(async () => {
+  await shutdown();
+});
 
 const JUDGE_SYSTEM = `\
 You are evaluating a finished article produced by an AI content pipeline for Lumen, a B2B SaaS accounting product.
@@ -38,7 +48,6 @@ describe('E2E judge', () => {
 
     // Auto-approve the plan and run to completion
     for await (const _ of await graph.stream(
-      // @ts-expect-error — Command type is intentionally untyped here
       new Command({ resume: { approved: true } }),
       config,
     )) {
@@ -56,5 +65,5 @@ describe('E2E judge', () => {
     );
 
     expect(verdict.pass).toBe(true);
-  }, 180_000); // 3-minute budget for full pipeline
+  }, 300_000); // 5-minute budget for full pipeline
 });

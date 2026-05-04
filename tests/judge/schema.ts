@@ -5,8 +5,8 @@ export const JudgeVerdictSchema = z.object({
   pass: z.boolean().describe('true if the output meets all criteria'),
   overall_score: z.number().min(0).max(1).describe('0–1 aggregate quality score'),
   criteria: z
-    .record(z.string(), z.number().min(0).max(1))
-    .describe('per-criterion scores keyed by criterion name'),
+    .array(z.object({ name: z.string(), score: z.number().min(0).max(1) }))
+    .describe('per-criterion scores'),
   reasoning: z.string().min(20).describe('explanation of the verdict, at least one sentence'),
 });
 

@@ -2,6 +2,10 @@
 
 A multi-agent system that plans, writes, and edits blog posts and social media content before saving the final approved result. Built with LangGraph, LangChain, and Bun in TypeScript.
 
+## Demo
+
+[Video example](https://drive.google.com/file/d/1162yC6XOtEMKJW5yVBMNC32W54ng44OP/view?usp=sharing)
+
 ## Architecture
 
 ```mermaid
@@ -55,12 +59,13 @@ Edit `.env`:
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini        # optional, defaults to gpt-4o-mini
 
+# Tavily search API — get a free key at https://app.tavily.com
+TAVILY_API_KEY=tvly-...
+
 # Langfuse observability (optional — leave blank to disable)
 LANGFUSE_SECRET_KEY=
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_HOST=https://cloud.langfuse.com
-LANGFUSE_PROMPT_PREFIX=content-creator-agent
-LANGFUSE_PROMPT_LABEL=production
 
 # Chroma vector store
 CHROMA_URL=http://localhost:8000
@@ -70,6 +75,9 @@ CHROMA_COLLECTION=brand
 NOTION_TOKEN=
 NOTION_BRAND_PAGE_ID=
 NOTION_DRAFTS_DATABASE_ID=
+
+# Set to "true" to skip the Notion publish step
+SKIP_PUBLISH=
 ```
 
 **3. Start Chroma**
@@ -198,7 +206,19 @@ graph.stream(new Command({ resume: { approved: false, feedback: "..." } }), conf
 
 ## Observability
 
-Traces are sent to [Langfuse](https://cloud.langfuse.com) when `LANGFUSE_SECRET_KEY` and `LANGFUSE_PUBLIC_KEY` are set. Each LLM call is tagged with the agent name, iteration number, and thread ID.
+Traces are sent to [Langfuse](https://cloud.langfuse.com) when `LANGFUSE_SECRET_KEY` and `LANGFUSE_PUBLIC_KEY` are set.
+
+Each CLI run maps to a single Langfuse **Session** (identified by the `thread_id` UUID printed at startup). All agent traces within that run are linked to the session, so you can view the complete `strategist → writer → editor` chain together in the Sessions view.
+
+Each node emits a named run:
+
+| Node | `runName` | Tags | Metadata |
+|---|---|---|---|
+| Strategist | `strategist` / `strategist-revision` | `strategist`, `initial`/`revision` | `agent`, `is_revision` |
+| Writer | `writer-iter-N` | `writer`, `iteration:N` | `agent`, `iteration` |
+| Editor | `editor-iter-N` | `editor`, `iteration:N` | `agent`, `iteration` |
+
+All buffered events are flushed when the process exits cleanly. If Langfuse env vars are unset, the handler is a no-op and the pipeline runs without tracing.
 
 Upload the local strategist, writer, and editor prompts to Langfuse Prompt Management:
 
@@ -209,16 +229,6 @@ bun run upload-prompts
 By default this writes prompt versions named `content-creator-agent/strategist`, `content-creator-agent/writer`, and `content-creator-agent/editor` with the `production` label. Override with `LANGFUSE_PROMPT_PREFIX` or `LANGFUSE_PROMPT_LABEL` if needed.
 
 At runtime, the Strategist, Writer, and Editor fetch their chat prompts from Langfuse using that prefix and label. If Langfuse is not configured or temporarily unavailable, the local prompts in `src/prompts/` are used as fallbacks.
-
-Each node emits a named run:
-
-| Node | `runName` | Tags |
-|---|---|---|
-| Strategist | `strategist` / `strategist-revision` | `strategist`, `initial`/`revision` |
-| Writer | `writer-iter-N` | `writer`, `iteration:N` |
-| Editor | `editor-iter-N` | `editor`, `iteration:N` |
-
-To capture traces, add screenshots to `docs/traces/` after a run.
 
 ## Tests
 
@@ -277,16 +287,17 @@ output/             — approved articles written by the pipeline
 ## Reliability
 
 - **Null-state guards:** `editor`, `writer`, `strategist`, and `finalizer` throw clear errors if upstream state (plan/draft/structuredResponse) is missing — silent failures are no longer possible.
-- **Search retries:** `web_search` retries on DuckDuckGo rate-limit errors with exponential backoff (2s, 4s, 6s) before giving up.
+- **Search retries:** `web_search` retries on Tavily errors with exponential backoff before giving up.
 - **RAG error context:** brand corpus file-read failures name the exact file that broke.
 - **Filename slug:** Unicode-aware (`\p{L}\p{N}`) so Ukrainian and other non-Latin topics produce real filenames; falls back to `content-<timestamp>` only if the slug is genuinely empty.
 - **Editor scoring rubric:** explicit 0.0–0.3 / 0.4–0.7 / 0.8–1.0 bands per dimension instead of vague descriptions, for more consistent verdicts.
 
 ## Limits
 
-- **Iteration cap:** Editor loop runs at most 5 times. If the draft is still `REVISION_NEEDED` at iteration 5, it is saved to `output/` with an `-unapproved` suffix alongside a `.review.md` sidecar with the final issues.
+- **Iteration cap:** Editor loop runs at most 5 times (`MAX_ITERATIONS = 5`). If the draft is still `REVISION_NEEDED` at iteration 5, it is saved to `output/` with an `-unapproved` suffix alongside a `.review.md` sidecar with the final issues.
 - **HITL:** No cap on plan revisions — the user controls this loop.
 - **RAG:** Uses Chroma (local Docker, default `http://localhost:8000`). Embeddings persist between runs; a non-empty collection with a saved source hash is reused without loading Notion. Run `bun run reindex` to refresh the source corpus and rebuild the collection.
 - **Checkpointer:** Uses `MemorySaver` (in-process). Threads do not survive process restart. Swap to `SqliteSaver` or `@langchain/langgraph-checkpoint-postgres` for persistence across runs.
-- **Search:** DuckDuckGo, max 5 results per call. Rate-limit retries only; non-rate-limit errors are not retried.
-- **Publisher:** Best-effort — if the Notion API call fails, the run does not error. Output is still saved to `./output/`.
+- **Search:** Tavily, max 5 results per call, capped at 10 searches per run. Requires `TAVILY_API_KEY`.
+- **Publisher:** Best-effort — if the Notion API call fails, the run does not error and output is still saved to `./output/`. Set `SKIP_PUBLISH=true` to bypass the publisher entirely regardless of Notion configuration.
+- **Observability:** Trace events are buffered and flushed on clean process exit. Abrupt termination (SIGKILL, unhandled crash) may drop the last batch of events before they reach Langfuse.

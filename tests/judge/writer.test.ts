@@ -1,8 +1,13 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import 'dotenv/config';
+import { shutdown } from '../../src/observability';
 import { writer } from '../../src/nodes/writer';
 import { writerFixturePlan } from '../fixtures/plans';
 import { makeJudge } from './schema';
+
+afterAll(async () => {
+  await shutdown();
+});
 
 const JUDGE_SYSTEM = `\
 You are evaluating a draft article produced by an AI writer for Lumen, a B2B SaaS accounting product.

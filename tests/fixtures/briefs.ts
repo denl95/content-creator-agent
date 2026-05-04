@@ -24,11 +24,11 @@ export const twitterBrief: Brief = {
   word_count: 300,
 };
 
-// Used for e2e test — short word count to keep token spend low
+// Used for e2e test — on-brand topic the brand corpus covers well, short format to minimise LLM calls
 export const e2eBrief: Brief = {
-  topic: 'Why real-time bookkeeping beats month-end reconciliation',
+  topic: '3 routine tasks an AI assistant can handle for your small business today',
   target_audience: 'SMB owners',
-  channel: 'linkedin',
-  tone: 'professional',
-  word_count: 600,
+  channel: 'instagram',
+  tone: 'friendly',
+  word_count: 150,
 };

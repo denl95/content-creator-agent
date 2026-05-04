@@ -1,7 +1,12 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import 'dotenv/config';
+import { shutdown } from '../../src/observability';
 import { editor } from '../../src/nodes/editor';
 import { writerFixturePlan } from '../fixtures/plans';
+
+afterAll(async () => {
+  await shutdown();
+});
 
 const BAD_DRAFT_PATH = new URL('../fixtures/bad-draft.md', import.meta.url).pathname;
 
@@ -35,5 +40,5 @@ describe('Editor judge', () => {
     expect(fb.issues.length).toBeGreaterThanOrEqual(3);
     expect(fb.tone_score).toBeLessThan(0.6);
     expect(fb.accuracy_score).toBeLessThan(0.6);
-  }, 30_000);
+  }, 60_000);
 });

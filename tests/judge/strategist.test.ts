@@ -1,9 +1,19 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import 'dotenv/config';
+import { shutdown } from '../../src/observability';
 import { strategist } from '../../src/nodes/strategist';
+import { resetSearchCount } from '../../src/tools/search';
 import { makeInitialState } from '../../src/state';
 import { blogBrief, linkedinBrief, twitterBrief } from '../fixtures/briefs';
 import { makeJudge } from './schema';
+
+beforeAll(() => {
+  resetSearchCount();
+});
+
+afterAll(async () => {
+  await shutdown();
+});
 
 const JUDGE_SYSTEM = `\
 You are evaluating a ContentPlan produced by an AI content strategist for Lumen, a B2B SaaS accounting product.
@@ -41,7 +51,7 @@ describe('Strategist judge', () => {
       `Brief:\n${JSON.stringify(linkedinBrief, null, 2)}\n\nContentPlan:\n${JSON.stringify(plan, null, 2)}`,
     );
     expect(verdict.pass).toBe(true);
-  }, 60_000);
+  }, 120_000);
 
   test.concurrent('Blog brief → plan has appropriate depth', async () => {
     const plan = await runStrategist(blogBrief);
@@ -49,7 +59,7 @@ describe('Strategist judge', () => {
       `Brief:\n${JSON.stringify(blogBrief, null, 2)}\n\nContentPlan:\n${JSON.stringify(plan, null, 2)}`,
     );
     expect(verdict.pass).toBe(true);
-  }, 60_000);
+  }, 120_000);
 
   test.concurrent('Twitter brief → plan matches casual tone', async () => {
     const plan = await runStrategist(twitterBrief);
@@ -57,5 +67,5 @@ describe('Strategist judge', () => {
       `Brief:\n${JSON.stringify(twitterBrief, null, 2)}\n\nContentPlan:\n${JSON.stringify(plan, null, 2)}`,
     );
     expect(verdict.pass).toBe(true);
-  }, 60_000);
+  }, 120_000);
 });

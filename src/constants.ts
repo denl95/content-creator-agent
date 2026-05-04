@@ -1,1 +1,1 @@
-export const MAX_ITERATIONS = 5;
+export const MAX_ITERATIONS = Number(process.env.MAX_ITERATIONS ?? 5);
