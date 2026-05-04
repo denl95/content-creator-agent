@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { type ApiCreatePromptRequest, type ApiPrompt, Langfuse } from 'langfuse';
+import { type CreatePromptRequest, type Prompt, LangfuseClient } from '@langfuse/client';
 import {
   LANGFUSE_PROMPT_HOST,
   LANGFUSE_PROMPT_LABEL,
@@ -29,17 +29,17 @@ function stable(value: unknown): unknown {
   return value;
 }
 
-function comparablePrompt(prompt: ApiPrompt['prompt'] | ApiCreatePromptRequest['prompt']): unknown {
+function comparablePrompt(prompt: Prompt['prompt'] | CreatePromptRequest['prompt']): unknown {
   if (!Array.isArray(prompt)) return prompt;
   return prompt.map((message) => {
     if ('role' in message && 'content' in message) {
       return { role: message.role, content: message.content };
     }
-    return { type: 'placeholder', name: message.name };
+    return { type: 'placeholder', name: (message as { name?: string }).name };
   });
 }
 
-function samePrompt(a: ApiPrompt, b: ApiCreatePromptRequest): boolean {
+function samePrompt(a: Prompt, b: CreatePromptRequest): boolean {
   return (
     a.type === b.type &&
     JSON.stringify(stable(comparablePrompt(a.prompt))) ===
@@ -48,26 +48,24 @@ function samePrompt(a: ApiPrompt, b: ApiCreatePromptRequest): boolean {
   );
 }
 
-const prompts: ApiCreatePromptRequest[] = (Object.keys(MANAGED_PROMPTS) as PromptKey[]).map(
-  (key) => {
-    const spec = MANAGED_PROMPTS[key];
-    return {
-      type: 'chat',
-      name: promptName(key),
-      labels: [LANGFUSE_PROMPT_LABEL],
-      tags: spec.tags,
-      commitMessage: `Sync ${key} prompt from repository`,
-      config: {
-        source: spec.source,
-        placeholders: spec.placeholders,
-      },
-      prompt: spec.fallback.map((message) => ({ type: 'chatmessage' as const, ...message })),
-    };
-  },
-);
+const prompts: CreatePromptRequest[] = (Object.keys(MANAGED_PROMPTS) as PromptKey[]).map((key) => {
+  const spec = MANAGED_PROMPTS[key];
+  return {
+    type: 'chat',
+    name: promptName(key),
+    labels: [LANGFUSE_PROMPT_LABEL],
+    tags: spec.tags,
+    commitMessage: `Sync ${key} prompt from repository`,
+    config: {
+      source: spec.source,
+      placeholders: spec.placeholders,
+    },
+    prompt: spec.fallback.map((message) => ({ type: 'chatmessage' as const, ...message })),
+  };
+});
 
 async function main(): Promise<void> {
-  const langfuse = new Langfuse({
+  const langfuse = new LangfuseClient({
     publicKey: requireEnv('LANGFUSE_PUBLIC_KEY'),
     secretKey: requireEnv('LANGFUSE_SECRET_KEY'),
     baseUrl: LANGFUSE_PROMPT_HOST,
@@ -80,8 +78,7 @@ async function main(): Promise<void> {
   for (const prompt of prompts) {
     process.stdout.write(`  ${prompt.name}... `);
     try {
-      const current = await langfuse.api.promptsGet({
-        promptName: encodeURIComponent(prompt.name),
+      const current = await langfuse.api.prompts.get(encodeURIComponent(prompt.name), {
         label: LANGFUSE_PROMPT_LABEL,
       });
       if (samePrompt(current, prompt)) {
@@ -92,11 +89,11 @@ async function main(): Promise<void> {
       // Prompt does not exist yet, or the requested label is not present.
     }
 
-    const created = await langfuse.api.promptsCreate(prompt);
+    const created = await langfuse.api.prompts.create(prompt);
     console.log(`uploaded v${created.version}`);
   }
 
-  await langfuse.shutdownAsync();
+  await langfuse.flush();
 }
 
 main().catch((err) => {

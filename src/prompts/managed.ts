@@ -1,4 +1,4 @@
-import { type ChatPromptClient, Langfuse } from 'langfuse';
+import { type ChatPromptClient, LangfuseClient } from '@langfuse/client';
 import type { ContentPlan, DraftContent, EditFeedback } from '../schemas';
 import { EDITOR_SYSTEM } from './editor';
 import { STRATEGIST_SYSTEM } from './strategist';
@@ -28,7 +28,8 @@ const commonTags = ['content-creator-agent'];
 
 export const LANGFUSE_PROMPT_LABEL = process.env.LANGFUSE_PROMPT_LABEL ?? 'production';
 export const LANGFUSE_PROMPT_PREFIX = process.env.LANGFUSE_PROMPT_PREFIX ?? 'content-creator-agent';
-export const LANGFUSE_PROMPT_HOST = process.env.LANGFUSE_HOST ?? 'https://cloud.langfuse.com';
+export const LANGFUSE_PROMPT_HOST =
+  process.env.LANGFUSE_BASE_URL ?? process.env.LANGFUSE_HOST ?? 'https://cloud.langfuse.com';
 const LANGFUSE_PROMPT_CACHE_TTL_SECONDS = Number(
   process.env.LANGFUSE_PROMPT_CACHE_TTL_SECONDS ?? 300,
 );
@@ -126,10 +127,10 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
   },
 };
 
-let langfusePromptClient: Langfuse | null | undefined;
+let langfusePromptClient: LangfuseClient | null | undefined;
 const warnedFallbacks = new Set<string>();
 
-function getLangfusePromptClient(): Langfuse | null {
+function getLangfusePromptClient(): LangfuseClient | null {
   if (langfusePromptClient !== undefined) return langfusePromptClient;
 
   const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
@@ -139,7 +140,7 @@ function getLangfusePromptClient(): Langfuse | null {
     return langfusePromptClient;
   }
 
-  langfusePromptClient = new Langfuse({
+  langfusePromptClient = new LangfuseClient({
     publicKey,
     secretKey,
     baseUrl: LANGFUSE_PROMPT_HOST,
@@ -195,7 +196,7 @@ export async function compileManagedPrompt(
   }
 
   try {
-    const prompt = await client.getPrompt(promptName(key), undefined, {
+    const prompt = await client.prompt.get(promptName(key), {
       label: LANGFUSE_PROMPT_LABEL,
       type: 'chat',
       fallback: spec.fallback,

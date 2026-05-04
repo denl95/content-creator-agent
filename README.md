@@ -65,7 +65,7 @@ TAVILY_API_KEY=tvly-...
 # Langfuse observability (optional — leave blank to disable)
 LANGFUSE_SECRET_KEY=
 LANGFUSE_PUBLIC_KEY=
-LANGFUSE_HOST=https://cloud.langfuse.com
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
 
 # Chroma vector store
 CHROMA_URL=http://localhost:8000
