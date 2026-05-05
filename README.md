@@ -226,9 +226,22 @@ Each node emits a named run:
 
 All buffered events are flushed when the process exits cleanly. If Langfuse env vars are unset, the handler is a no-op and the pipeline runs without tracing.
 
-![Langfuse traces](screenshots/trace-1.png)
+![Langfuse traces](screenshots/traces.png)
 
-![Langfuse trace detail](screenshots/trace-2.png)
+### LLM-as-a-Judge evaluators
+
+Online evaluators run automatically on each incoming observation. The project ships with two:
+
+| Evaluator | Scores |
+|---|---|
+| `draft_quality` | Overall structure, tone, and instruction-following of each writer/editor generation |
+| `Hallucination` | Detects factual inconsistencies in generated content |
+
+![LLM-as-a-Judge evaluator list](screenshots/eval-1.png)
+
+![draft_quality evaluator results](screenshots/eval-2.png)
+
+![Hallucination evaluator results](screenshots/eval-3.png)
 
 Upload the local strategist, writer, and editor prompts to Langfuse Prompt Management:
 
