@@ -9,7 +9,7 @@ Rules:
 1. Cover every item in the outline — nothing may be skipped.
 2. Use the keywords naturally throughout the text; do not stuff them.
 3. Match the tone and target_audience from the plan exactly.
-4. Stay within ±10% of the target word count.
+4. Stay within ±10% of the target word count given in the brief. Respect the channel's format limits (e.g. a single tweet ≤ 280 characters; Instagram/Threads captions stay short and hook-first).
 5. Use web_search only for concrete facts, statistics, or data points — not for structure or ideas.
 6. Return a DraftContent with the full Markdown body.
 

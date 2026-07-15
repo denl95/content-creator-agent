@@ -1,5 +1,6 @@
 import { type ChatPromptClient, LangfuseClient } from '@langfuse/client';
-import type { ContentPlan, DraftContent, EditFeedback } from '../schemas';
+import type { Brief, ContentPlan, DraftContent, EditFeedback } from '../schemas';
+import { countWords } from '../utils/text';
 import { EDITOR_SYSTEM } from './editor';
 import { STRATEGIST_SYSTEM } from './strategist';
 import { WRITER_SYSTEM } from './writer';
@@ -79,6 +80,8 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
       'key_messages',
       'target_audience',
       'tone',
+      'channel',
+      'word_count',
       'prior_draft',
       'editor_feedback',
     ],
@@ -94,6 +97,8 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
           'Key messages: {{key_messages}}',
           'Target audience: {{target_audience}}',
           'Tone: {{tone}}',
+          'Channel: {{channel}}',
+          'Target word count: {{word_count}} words — stay within ±10%.',
           '',
           '{{prior_draft}}',
           '{{editor_feedback}}',
@@ -105,7 +110,16 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
     key: 'editor',
     source: 'src/prompts/editor.ts',
     tags: [...commonTags, 'editor'],
-    placeholders: ['outline', 'tone', 'target_audience', 'keywords', 'draft_content'],
+    placeholders: [
+      'outline',
+      'tone',
+      'target_audience',
+      'keywords',
+      'channel',
+      'word_count',
+      'actual_word_count',
+      'draft_content',
+    ],
     fallback: [
       { role: 'system', content: EDITOR_SYSTEM },
       {
@@ -118,6 +132,8 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
           'Tone: {{tone}}',
           'Target audience: {{target_audience}}',
           'Keywords required: {{keywords}}',
+          'Channel: {{channel}}',
+          'Target word count: {{word_count}} words (the draft below has {{actual_word_count}} words)',
           '',
           '--- DRAFT ---',
           '{{draft_content}}',
@@ -245,6 +261,7 @@ export function strategistVariables(
 
 export function writerVariables(
   plan: ContentPlan,
+  brief: Brief,
   prior?: { draft: DraftContent; feedback: EditFeedback } | null,
 ): Record<string, string> {
   return {
@@ -253,6 +270,8 @@ export function writerVariables(
     key_messages: plan.key_messages.join(' | '),
     target_audience: plan.target_audience,
     tone: plan.tone,
+    channel: brief.channel,
+    word_count: String(brief.word_count),
     prior_draft: prior ? `--- REVISION MODE ---\nPrevious draft:\n${prior.draft.content}` : '',
     editor_feedback: prior
       ? [
@@ -264,12 +283,19 @@ export function writerVariables(
   };
 }
 
-export function editorVariables(plan: ContentPlan, draftContent: string): Record<string, string> {
+export function editorVariables(
+  plan: ContentPlan,
+  brief: Brief,
+  draftContent: string,
+): Record<string, string> {
   return {
     outline: formatOutline(plan.outline),
     tone: plan.tone,
     target_audience: plan.target_audience,
     keywords: plan.keywords.join(', '),
+    channel: brief.channel,
+    word_count: String(brief.word_count),
+    actual_word_count: String(countWords(draftContent)),
     draft_content: draftContent,
   };
 }

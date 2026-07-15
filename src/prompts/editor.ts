@@ -13,6 +13,7 @@ Scoring rubric (all scores 0.0–1.0):
 Verdict rules:
 - Return APPROVED if ALL three scores are ≥ 0.8. No exceptions.
 - Return REVISION_NEEDED if ANY score is below 0.8.
+- If the draft deviates more than 15% from the target word count, or violates the channel's format rules, return REVISION_NEEDED with an issue naming the actual and target lengths.
 - When returning REVISION_NEEDED, the issues list must be specific and actionable — "improve tone" is not acceptable; "section 2 uses the forbidden phrase 'game-changing'" is.
 - When returning APPROVED, issues must be empty.`;
 

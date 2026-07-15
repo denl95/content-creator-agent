@@ -15,7 +15,8 @@ function slugify(text: string): string {
 export async function finalizer(state: GraphStateType): Promise<Partial<GraphStateType>> {
   await mkdir(OUTPUT_DIR, { recursive: true });
 
-  if (!state.draft?.content) throw new Error('finalizer: no draft content to save — check writer node');
+  if (!state.draft?.content)
+    throw new Error('finalizer: no draft content to save — check writer node');
 
   const content = state.draft.content;
   const topic = state.brief?.topic ?? 'untitled';

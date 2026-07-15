@@ -15,11 +15,15 @@ export async function writer(
   const threadId = config?.configurable?.thread_id as string | undefined;
 
   if (!state.plan) throw new Error('writer: state.plan is missing — check HITL approval flow');
+  if (!state.brief) throw new Error('writer: state.brief is missing');
 
   const iteration = state.iteration + 1;
   const prior =
     state.draft && state.editFeedback ? { draft: state.draft, feedback: state.editFeedback } : null;
-  const prompt = await compileManagedPrompt('writer', writerVariables(state.plan, prior));
+  const prompt = await compileManagedPrompt(
+    'writer',
+    writerVariables(state.plan, state.brief, prior),
+  );
   const systemPrompt = prompt.messages.find((message) => message.role === 'system')?.content;
   const messages = prompt.messages.filter((message) => message.role !== 'system');
   const writerAgent = createAgent({

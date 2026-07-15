@@ -17,11 +17,12 @@ export async function editor(
 
   if (!state.plan)
     throw new Error('editor: state.plan is missing — check routing from hitl/strategist');
+  if (!state.brief) throw new Error('editor: state.brief is missing');
   if (!state.draft?.content)
     throw new Error('editor: state.draft is missing — check routing from writer');
   const prompt = await compileManagedPrompt(
     'editor',
-    editorVariables(state.plan, state.draft.content),
+    editorVariables(state.plan, state.brief, state.draft.content),
   );
 
   const editFeedback = await editorLLM.invoke(prompt.messages, {
