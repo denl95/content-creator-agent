@@ -6,6 +6,7 @@ import { compileManagedPrompt, writerVariables } from '../prompts/managed';
 import { DraftContentSchema } from '../schemas';
 import type { GraphStateType } from '../state';
 import { searchTool } from '../tools/index';
+import { countWords } from '../utils/text';
 
 export async function writer(
   state: GraphStateType,
@@ -45,7 +46,10 @@ export async function writer(
     throw new Error('writer: LLM returned no structured response — check model and responseFormat');
 
   return {
-    draft: result.structuredResponse,
+    draft: {
+      ...result.structuredResponse,
+      word_count: countWords(result.structuredResponse.content),
+    },
     iteration,
   };
 }
