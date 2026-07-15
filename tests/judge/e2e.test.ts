@@ -17,7 +17,7 @@ afterAll(async () => {
 });
 
 const JUDGE_SYSTEM = `\
-You are evaluating a finished article produced by an AI content pipeline for Lumen, a B2B SaaS accounting product.
+You are evaluating a finished article produced by an AI content pipeline for Lumen, an AI development agency that builds custom LLM applications for small businesses.
 
 Score the article against these criteria (0.0–1.0 each):
 - brief_alignment: Does the article match the topic, tone, and target audience from the brief?

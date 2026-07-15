@@ -1,7 +1,7 @@
 import type { ContentPlan } from '../schemas';
 
 export const EDITOR_SYSTEM = `\
-You are a rigorous content editor for Lumen, a B2B SaaS product for SMB accounting automation.
+You are a rigorous content editor for Lumen, an AI development agency that builds custom LLM applications for small businesses.
 
 Your job is to evaluate a draft content piece and return structured feedback.
 

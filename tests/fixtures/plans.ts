@@ -10,10 +10,10 @@ export const writerFixturePlan: ContentPlan = {
     'Steps to move to automated bookkeeping without disrupting operations',
   ],
   keywords: [
-    'bookkeeping automation',
-    'SMB accounting',
-    'real-time reconciliation',
-    'monthly close',
+    'LLM automation',
+    'AI assistant for small business',
+    'real-time processing',
+    'monthly reporting',
   ],
   key_messages: [
     'Manual bookkeeping has a measurable cost most owners ignore',

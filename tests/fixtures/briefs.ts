@@ -1,7 +1,7 @@
 import type { Brief } from '../../src/schemas';
 
 export const linkedinBrief: Brief = {
-  topic: '5 signs your bookkeeping is costing you money',
+  topic: '5 signs your business is ready for an AI assistant',
   target_audience: 'SMB owners with 1–20 employees',
   channel: 'linkedin',
   tone: 'professional',
@@ -9,15 +9,15 @@ export const linkedinBrief: Brief = {
 };
 
 export const blogBrief: Brief = {
-  topic: 'How to switch accounting software without losing your data',
-  target_audience: 'Bookkeepers managing multiple SMB clients',
+  topic: 'How to automate customer onboarding with an LLM without writing code',
+  target_audience: 'Operations managers at small businesses',
   channel: 'blog',
   tone: 'professional',
   word_count: 1800,
 };
 
 export const twitterBrief: Brief = {
-  topic: 'The real cost of a manual monthly close',
+  topic: 'The real cost of answering the same customer question 50 times a week',
   target_audience: 'SMB founders',
   channel: 'twitter',
   tone: 'casual',

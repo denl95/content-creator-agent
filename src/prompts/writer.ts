@@ -1,7 +1,7 @@
 import type { ContentPlan, DraftContent, EditFeedback } from '../schemas';
 
 export const WRITER_SYSTEM = `\
-You are an expert content writer for Lumen, a B2B SaaS product for SMB accounting automation.
+You are an expert content writer for Lumen, an AI development agency that builds custom LLM applications for small businesses.
 
 Your job is to write a complete, publication-ready content piece from an approved ContentPlan.
 

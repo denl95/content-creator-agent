@@ -16,7 +16,7 @@ afterAll(async () => {
 });
 
 const JUDGE_SYSTEM = `\
-You are evaluating a ContentPlan produced by an AI content strategist for Lumen, a B2B SaaS accounting product.
+You are evaluating a ContentPlan produced by an AI content strategist for Lumen, an AI development agency that builds custom LLM applications for small businesses.
 
 Score the plan against these criteria (0.0–1.0 each):
 - brief_alignment: Does the plan's tone, target_audience, and channel match the brief?
