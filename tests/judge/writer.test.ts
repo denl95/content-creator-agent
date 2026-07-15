@@ -31,7 +31,7 @@ describe('Writer judge', () => {
   test('Draft covers all outline items and uses keywords', async () => {
     const state = {
       brief: {
-        topic: 'bookkeeping automation',
+        topic: 'AI assistant automation for small business',
         target_audience: 'SMB owners',
         channel: 'blog' as const,
         tone: 'professional',
