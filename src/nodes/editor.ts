@@ -1,4 +1,4 @@
-import type { RunnableConfig } from '@langchain/core/runnables';
+import { mergeConfigs, type RunnableConfig } from '@langchain/core/runnables';
 import { ChatOpenAI } from '@langchain/openai';
 import { LLM_TIMEOUT_MS } from '../model';
 import { traceOptions } from '../observability';
@@ -31,15 +31,18 @@ export async function editor(
     editorVariables(state.plan, state.brief, state.draft.content, brandStyle),
   );
 
-  const editFeedback = await editorLLM.invoke(prompt.messages, {
-    runName: `editor-iter-${state.iteration}`,
-    tags: ['editor', `iteration:${state.iteration}`],
-    ...traceOptions(threadId, {
-      agent: 'editor',
-      iteration: state.iteration,
-      ...(prompt.langfusePrompt ? { langfusePrompt: prompt.langfusePrompt } : {}),
+  const editFeedback = await editorLLM.invoke(
+    prompt.messages,
+    mergeConfigs(config, {
+      runName: `editor-iter-${state.iteration}`,
+      tags: ['editor', `iteration:${state.iteration}`],
+      ...traceOptions(threadId, {
+        agent: 'editor',
+        iteration: state.iteration,
+        ...(prompt.langfusePrompt ? { langfusePrompt: prompt.langfusePrompt } : {}),
+      }),
     }),
-  });
+  );
 
   return { editFeedback };
 }

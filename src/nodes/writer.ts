@@ -1,4 +1,4 @@
-import type { RunnableConfig } from '@langchain/core/runnables';
+import { mergeConfigs, type RunnableConfig } from '@langchain/core/runnables';
 import { createAgent } from 'langchain';
 import { model } from '../model';
 import { traceOptions } from '../observability';
@@ -35,7 +35,7 @@ export async function writer(
 
   const result = await writerAgent.invoke(
     { messages },
-    {
+    mergeConfigs(config, {
       runName: `writer-iter-${iteration}`,
       tags: ['writer', `iteration:${iteration}`],
       ...traceOptions(threadId, {
@@ -43,7 +43,7 @@ export async function writer(
         iteration,
         ...(prompt.langfusePrompt ? { langfusePrompt: prompt.langfusePrompt } : {}),
       }),
-    },
+    }),
   );
 
   if (!result.structuredResponse)
