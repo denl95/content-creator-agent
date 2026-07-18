@@ -1,5 +1,6 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { ChatOpenAI } from '@langchain/openai';
+import { LLM_TIMEOUT_MS } from '../model';
 import { traceOptions } from '../observability';
 import { compileManagedPrompt, editorVariables } from '../prompts/managed';
 import { EditFeedbackSchema } from '../schemas';
@@ -8,6 +9,7 @@ import { lookupBrandStyle } from '../tools/rag';
 
 const editorLLM = new ChatOpenAI({
   model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+  timeout: LLM_TIMEOUT_MS,
 }).withStructuredOutput(EditFeedbackSchema, { name: 'edit_feedback' });
 
 export async function editor(

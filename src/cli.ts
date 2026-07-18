@@ -7,8 +7,8 @@ import { graph } from './graph';
 import { shutdownNotionMcp } from './mcp/notion';
 import { shutdown } from './observability';
 import { BriefSchema } from './schemas';
-import { resetSearchCount } from './tools/search';
 import { makeInitialState } from './state';
+import { resetSearchCount } from './tools/search';
 
 const ArgsSchema = z.object({
   topic: z.string().min(1),
@@ -179,7 +179,10 @@ export async function main(): Promise<void> {
         console.log(prettyPlan(payload.plan as Parameters<typeof prettyPlan>[0]));
       }
 
-      const answer = (await rl.question('[a]pprove, [r]evise, [q]uit? ')).trim().toLowerCase();
+      let answer = '';
+      while (!['a', 'r', 'q'].includes(answer)) {
+        answer = (await rl.question('[a]pprove, [r]evise, [q]uit? ')).trim().toLowerCase();
+      }
 
       if (answer === 'q') {
         console.log(`\nAborted. Thread ID: ${threadId}`);
