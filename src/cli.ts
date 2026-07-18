@@ -3,6 +3,7 @@ import { parseArgs } from 'node:util';
 import 'dotenv/config';
 import { Command } from '@langchain/langgraph';
 import { z } from 'zod';
+import { CostTracker } from './costTracker';
 import { graph } from './graph';
 import { shutdownNotionMcp } from './mcp/notion';
 import { shutdown } from './observability';
@@ -142,7 +143,8 @@ export async function main(): Promise<void> {
   console.log(`Channel:   ${brief.channel} | Tone: ${brief.tone} | Words: ${brief.word_count}\n`);
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const config = { configurable: { thread_id: threadId } };
+  const tracker = new CostTracker();
+  const config = { configurable: { thread_id: threadId }, callbacks: [tracker] };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let currentInput: any = makeInitialState(brief);
   resetSearchCount();
@@ -168,6 +170,11 @@ export async function main(): Promise<void> {
           } else {
             console.log(`[${nodeName}]`);
           }
+        }
+        if (tracker.overBudget()) {
+          throw new Error(
+            `Token budget exceeded: ${tracker.totalTokens()} tokens (cap MAX_RUN_TOKENS=${process.env.MAX_RUN_TOKENS})`,
+          );
         }
       }
 
@@ -209,6 +216,10 @@ export async function main(): Promise<void> {
     } else {
       console.log('\nPipeline completed — check ./output/ for the saved file.');
     }
+
+    console.log(
+      `\nTokens: ${tracker.inputTokens} in / ${tracker.outputTokens} out — est. cost $${tracker.costUsd().toFixed(4)}`,
+    );
   } catch (err) {
     console.error(`\nError: ${err instanceof Error ? err.message : String(err)}`);
     console.error(`Thread ID for debugging: ${threadId}`);
