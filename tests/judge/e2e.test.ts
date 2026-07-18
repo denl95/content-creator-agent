@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import 'dotenv/config';
 import { Command } from '@langchain/langgraph';
-import { shutdown } from '../../src/observability';
 import { graph } from '../../src/graph';
-import { resetSearchCount } from '../../src/tools/search';
+import { shutdown } from '../../src/observability';
 import { makeInitialState } from '../../src/state';
+import { resetSearchCount } from '../../src/tools/search';
 import { e2eBrief } from '../fixtures/briefs';
 import { makeJudge } from './schema';
 
@@ -47,10 +47,7 @@ describe('E2E judge', () => {
     expect(interrupted).toBe(true);
 
     // Auto-approve the plan and run to completion
-    for await (const _ of await graph.stream(
-      new Command({ resume: { approved: true } }),
-      config,
-    )) {
+    for await (const _ of await graph.stream(new Command({ resume: { approved: true } }), config)) {
       // drain the stream
     }
 

@@ -1,6 +1,6 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { CallbackHandler } from '@langfuse/langchain';
+import { LangfuseSpanProcessor } from '@langfuse/otel';
+import { NodeSDK } from '@opentelemetry/sdk-node';
 
 // LangfuseSpanProcessor reads LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
 // Map the legacy LANGFUSE_HOST env var so both names work.

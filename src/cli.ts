@@ -125,7 +125,7 @@ export async function main(): Promise<void> {
       'Invalid arguments:\n' +
         parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n'),
     );
-    console.error('\n' + USAGE);
+    console.error(`\n${USAGE}`);
     process.exit(1);
   }
 
@@ -146,7 +146,7 @@ export async function main(): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const tracker = new CostTracker();
   const config = { configurable: { thread_id: threadId }, callbacks: [tracker] };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: graph.stream accepts either partial state or a Command
   let currentInput: any = makeInitialState(brief);
   resetSearchCount(threadId);
 

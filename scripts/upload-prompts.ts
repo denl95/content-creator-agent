@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { type CreatePromptRequest, type Prompt, LangfuseClient } from '@langfuse/client';
+import { type CreatePromptRequest, LangfuseClient, type Prompt } from '@langfuse/client';
 import {
   LANGFUSE_PROMPT_HOST,
   LANGFUSE_PROMPT_LABEL,

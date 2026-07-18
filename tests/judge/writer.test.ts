@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import 'dotenv/config';
-import { shutdown } from '../../src/observability';
 import { writer } from '../../src/nodes/writer';
+import { shutdown } from '../../src/observability';
 import { writerFixturePlan } from '../fixtures/plans';
 import { makeJudge } from './schema';
 
@@ -49,6 +49,7 @@ describe('Writer judge', () => {
 
     // @ts-expect-error — partial state is fine for node invocation
     const patch = await writer(state);
+    // biome-ignore lint/style/noNonNullAssertion: harness-invoked node call always populates this field
     const draft = patch.draft!;
 
     // Harness check: keyword coverage ≥ 75% (no LLM needed)
