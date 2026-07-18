@@ -1,5 +1,3 @@
-import type { ContentPlan, DraftContent, EditFeedback } from '../schemas';
-
 export const WRITER_SYSTEM = `\
 You are an expert content writer for Lumen, an AI development agency that builds custom LLM applications for small businesses.
 
@@ -17,33 +15,3 @@ If a prior draft and editor issues are provided, you are in revision mode:
 - Address every issue from the editor explicitly.
 - Keep the existing structure unless an issue requires a section rewrite.
 - Do not introduce new off-topic sections.`;
-
-export function buildWriterMessage(
-  plan: ContentPlan,
-  prior?: { draft: DraftContent; feedback: EditFeedback } | null,
-): string {
-  const lines = [
-    'Write a content piece based on this approved plan:',
-    '',
-    `Outline: ${plan.outline.map((item, i) => `\n  ${i + 1}. ${item}`).join('')}`,
-    `Keywords: ${plan.keywords.join(', ')}`,
-    `Key messages: ${plan.key_messages.join(' | ')}`,
-    `Target audience: ${plan.target_audience}`,
-    `Tone: ${plan.tone}`,
-  ];
-
-  if (prior) {
-    lines.push(
-      '',
-      '--- REVISION MODE ---',
-      'Previous draft:',
-      prior.draft.content,
-      '',
-      'Editor issues to address:',
-      ...prior.feedback.issues.map((issue) => `- ${issue}`),
-      `Scores: tone=${prior.feedback.tone_score}, accuracy=${prior.feedback.accuracy_score}, structure=${prior.feedback.structure_score}`,
-    );
-  }
-
-  return lines.join('\n');
-}

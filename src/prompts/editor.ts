@@ -1,5 +1,3 @@
-import type { ContentPlan } from '../schemas';
-
 export const EDITOR_SYSTEM = `\
 You are a rigorous content editor for Lumen, an AI development agency that builds custom LLM applications for small businesses.
 
@@ -16,18 +14,3 @@ Verdict rules:
 - If the draft deviates more than 15% from the target word count, or violates the channel's format rules, return REVISION_NEEDED with an issue naming the actual and target lengths.
 - When returning REVISION_NEEDED, the issues list must be specific and actionable — "improve tone" is not acceptable; "section 2 uses the forbidden phrase 'game-changing'" is.
 - When returning APPROVED, issues must be empty.`;
-
-export function buildEditorMessage(plan: ContentPlan, draftContent: string): string {
-  return [
-    'Evaluate this draft against the approved content plan.',
-    '',
-    '--- CONTENT PLAN ---',
-    `Outline: ${plan.outline.map((item, i) => `\n  ${i + 1}. ${item}`).join('')}`,
-    `Tone: ${plan.tone}`,
-    `Target audience: ${plan.target_audience}`,
-    `Keywords required: ${plan.keywords.join(', ')}`,
-    '',
-    '--- DRAFT ---',
-    draftContent,
-  ].join('\n');
-}
