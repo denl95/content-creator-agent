@@ -148,7 +148,7 @@ export async function main(): Promise<void> {
   const config = { configurable: { thread_id: threadId }, callbacks: [tracker] };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let currentInput: any = makeInitialState(brief);
-  resetSearchCount();
+  resetSearchCount(threadId);
 
   try {
     while (true) {
