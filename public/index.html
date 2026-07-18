@@ -77,6 +77,7 @@
 const NODES = ['strategist', 'hitl', 'writer', 'editor', 'finalizer', 'publisher'];
 let threadId = null;
 let eventSource = null;
+let lastEventTs = 0;
 
 const $ = (id) => document.getElementById(id);
 
@@ -112,7 +113,9 @@ async function loadDrafts() {
 const doneNodes = new Set();
 
 function handleEvent(e) {
-  const { node, data } = JSON.parse(e.data);
+  const { node, data, ts } = JSON.parse(e.data);
+  if (ts <= lastEventTs) return;
+  lastEventTs = ts;
   if (NODES.includes(node)) { doneNodes.add(node); renderPipeline(null, doneNodes); }
 
   if (node === 'hitl' && data.awaiting) {
