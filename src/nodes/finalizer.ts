@@ -1,5 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import type { RunnableConfig } from '@langchain/core/runnables';
+import { insertDraft } from '../db';
 import type { GraphStateType } from '../state';
 
 const OUTPUT_DIR = 'output';
@@ -12,36 +14,40 @@ function slugify(text: string): string {
     .slice(0, 60);
 }
 
-export async function finalizer(state: GraphStateType): Promise<Partial<GraphStateType>> {
-  await mkdir(OUTPUT_DIR, { recursive: true });
-
+export async function finalizer(
+  state: GraphStateType,
+  config?: RunnableConfig,
+): Promise<Partial<GraphStateType>> {
   if (!state.draft?.content)
     throw new Error('finalizer: no draft content to save — check writer node');
 
-  const content = state.draft.content;
-  const topic = state.brief?.topic ?? 'untitled';
-  const approved = state.editFeedback?.verdict === 'APPROVED';
-  const slug = slugify(topic) || `content-${Date.now()}`;
-  const suffix = approved ? '' : '-unapproved';
-  const filename = `${slug}${suffix}.md`;
-  const filePath = path.resolve(OUTPUT_DIR, filename);
+  const threadId = (config?.configurable?.thread_id as string | undefined) ?? crypto.randomUUID();
+  const fb = state.editFeedback;
 
-  await Bun.write(filePath, content);
+  insertDraft({
+    id: threadId,
+    topic: state.brief?.topic ?? 'untitled',
+    channel: state.brief?.channel ?? 'blog',
+    tone: state.brief?.tone ?? '',
+    audience: state.brief?.target_audience ?? '',
+    content: state.draft.content,
+    word_count: state.draft.word_count,
+    verdict: fb?.verdict ?? null,
+    tone_score: fb?.tone_score ?? null,
+    accuracy_score: fb?.accuracy_score ?? null,
+    structure_score: fb?.structure_score ?? null,
+    iterations: state.iteration,
+    issues: fb?.issues ?? [],
+  });
+  console.log(`[finalizer] Draft saved to database (id=${threadId})`);
 
-  if (!approved && state.editFeedback?.issues.length) {
-    const reviewPath = path.resolve(OUTPUT_DIR, `${slug}${suffix}.review.md`);
-    const reviewContent = [
-      `# Editor review — ${topic}`,
-      '',
-      `Stopped after ${state.iteration} iteration(s) — max iterations reached without approval.`,
-      '',
-      '## Issues',
-      ...state.editFeedback.issues.map((i) => `- ${i}`),
-      '',
-      `Scores: tone=${state.editFeedback.tone_score}, accuracy=${state.editFeedback.accuracy_score}, structure=${state.editFeedback.structure_score}`,
-    ].join('\n');
-    await Bun.write(reviewPath, reviewContent);
+  if (process.env.WRITE_OUTPUT_FILES === 'true') {
+    await mkdir(OUTPUT_DIR, { recursive: true });
+    const approved = fb?.verdict === 'APPROVED';
+    const slug = slugify(state.brief?.topic ?? 'untitled') || 'content';
+    const filename = `${slug}-${threadId.slice(0, 8)}${approved ? '' : '-unapproved'}.md`;
+    await Bun.write(path.resolve(OUTPUT_DIR, filename), state.draft.content);
   }
 
-  return { finalContent: content };
+  return { finalContent: state.draft.content };
 }

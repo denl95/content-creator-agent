@@ -4,6 +4,7 @@ import 'dotenv/config';
 import { Command } from '@langchain/langgraph';
 import { z } from 'zod';
 import { CostTracker } from './costTracker';
+import { setDraftCost } from './db';
 import { graph } from './graph';
 import { shutdownNotionMcp } from './mcp/notion';
 import { shutdown } from './observability';
@@ -71,7 +72,7 @@ function formatChunk(nodeName: string, value: unknown, verbose: boolean): string
   }
 
   if (nodeName === 'finalizer' && v.finalContent) {
-    return '  Content saved to ./output/';
+    return '  Draft saved to database';
   }
 
   if (nodeName === 'publisher') {
@@ -209,12 +210,14 @@ export async function main(): Promise<void> {
     const finalContent = finalState.values.finalContent as string | null;
     const notionUrl = finalState.values.notionUrl as string | null;
 
+    setDraftCost(threadId, tracker.costUsd());
+
     if (finalContent) {
-      console.log('\n✓ Done! Content saved to ./output/');
+      console.log(`\n✓ Done! Draft saved (id: ${threadId})`);
       if (notionUrl) console.log(`✓ Published to Notion: ${notionUrl}`);
       console.log(`\nFinal preview:\n${finalContent.slice(0, 400)}...`);
     } else {
-      console.log('\nPipeline completed — check ./output/ for the saved file.');
+      console.log('\nPipeline completed — check the drafts database for the saved row.');
     }
 
     console.log(
