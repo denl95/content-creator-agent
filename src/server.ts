@@ -5,7 +5,7 @@ import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 import { getDraft, listDrafts, setDraftNotionUrl } from './db';
 import { publishDraft } from './mcp/notion';
-import { getRun, resumeRun, startRun, subscribe } from './runManager';
+import { getRun, resumeRun, startRun, subscribe, sweepStaleRuns } from './runManager';
 import { BriefSchema } from './schemas';
 
 const ResumeSchema = z.union([
@@ -16,6 +16,7 @@ const ResumeSchema = z.union([
 export const app = new Hono();
 
 app.post('/runs', async (c) => {
+  sweepStaleRuns();
   const body = await c.req.json().catch(() => null);
   const parsed = BriefSchema.safeParse(body);
   if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);

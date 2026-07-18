@@ -7,7 +7,7 @@ import { makeInitialState } from './state';
 import { resetSearchCount } from './tools/search';
 
 export type RunStatus = 'running' | 'awaiting_approval' | 'done' | 'error';
-export type RunEvent = { node: string; data: unknown; ts: number };
+export type RunEvent = { node: string; data: unknown; ts: number; seq: number };
 
 export type RunRecord = {
   threadId: string;
@@ -20,9 +20,13 @@ export type RunRecord = {
 type InternalRun = RunRecord & {
   listeners: Set<(e: RunEvent) => void>;
   tracker: CostTracker;
+  nextSeq: number;
+  createdAt: number;
 };
 
 const runs = new Map<string, InternalRun>();
+
+const RUN_TTL_MS = Number(process.env.RUN_TTL_MS ?? 60 * 60 * 1000);
 
 export function getRun(threadId: string): RunRecord | undefined {
   return runs.get(threadId);
@@ -36,7 +40,7 @@ export function subscribe(threadId: string, fn: (e: RunEvent) => void): (() => v
 }
 
 function emit(run: InternalRun, node: string, data: unknown): void {
-  const event: RunEvent = { node, data, ts: Date.now() };
+  const event: RunEvent = { node, data, ts: Date.now(), seq: run.nextSeq++ };
   run.events.push(event);
   for (const fn of run.listeners) {
     try {
@@ -110,11 +114,29 @@ export function startRun(brief: Brief): string {
     events: [],
     listeners: new Set(),
     tracker: new CostTracker(),
+    nextSeq: 0,
+    createdAt: Date.now(),
   };
   runs.set(threadId, run);
   resetSearchCount(threadId);
   void drive(run, makeInitialState(brief));
   return threadId;
+}
+
+export function sweepStaleRuns(now = Date.now()): number {
+  let removed = 0;
+  for (const [threadId, run] of runs) {
+    const isTerminal = run.status === 'done' || run.status === 'error';
+    const isStaleAwaitingApproval =
+      run.status === 'awaiting_approval' && now - run.createdAt > RUN_TTL_MS;
+    const isStaleTerminal = isTerminal && now - run.createdAt > RUN_TTL_MS;
+    if (isStaleAwaitingApproval || isStaleTerminal) {
+      runs.delete(threadId);
+      resetSearchCount(threadId);
+      removed++;
+    }
+  }
+  return removed;
 }
 
 export function resumeRun(

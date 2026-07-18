@@ -77,7 +77,7 @@
 const NODES = ['strategist', 'hitl', 'writer', 'editor', 'finalizer', 'publisher'];
 let threadId = null;
 let eventSource = null;
-let lastEventTs = 0;
+let lastSeq = -1;
 
 const $ = (id) => document.getElementById(id);
 
@@ -88,8 +88,12 @@ function renderPipeline(activeNode, doneNodes) {
   }).join('');
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function mdToHtml(md) {
-  const esc = md.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const esc = escapeHtml(md);
   return esc
     .replace(/^### (.*)$/gm, '<h4>$1</h4>')
     .replace(/^## (.*)$/gm, '<h3>$1</h3>')
@@ -102,29 +106,29 @@ async function loadDrafts() {
   const drafts = await (await fetch('/drafts')).json();
   $('drafts-table').querySelector('tbody').innerHTML = drafts.map((d) => `
     <tr>
-      <td>${d.topic}</td><td>${d.channel}</td>
+      <td>${escapeHtml(d.topic)}</td><td>${d.channel}</td>
       <td><span class="badge ${d.verdict === 'APPROVED' ? 'approved' : 'unapproved'}">${d.verdict ?? '—'}</span></td>
       <td>${d.word_count}</td>
       <td>${d.cost_usd != null ? `$${d.cost_usd.toFixed(4)}` : '—'}</td>
-      <td>${d.created_at}</td>
+      <td>${escapeHtml(d.created_at)}</td>
     </tr>`).join('');
 }
 
 const doneNodes = new Set();
 
 function handleEvent(e) {
-  const { node, data, ts } = JSON.parse(e.data);
-  if (ts <= lastEventTs) return;
-  lastEventTs = ts;
+  const { node, data, seq } = JSON.parse(e.data);
+  if (seq <= lastSeq) return;
+  lastSeq = seq;
   if (NODES.includes(node)) { doneNodes.add(node); renderPipeline(null, doneNodes); }
 
   if (node === 'hitl' && data.awaiting) {
     const plan = data.payload?.plan;
     if (plan) {
       $('plan-body').innerHTML =
-        '<ol>' + plan.outline.map((i) => `<li>${i}</li>`).join('') + '</ol>' +
-        `<p><strong>Keywords:</strong> ${plan.keywords.join(', ')}</p>` +
-        `<p><strong>Tone:</strong> ${plan.tone} — <strong>Audience:</strong> ${plan.target_audience}</p>`;
+        '<ol>' + plan.outline.map((i) => `<li>${escapeHtml(i)}</li>`).join('') + '</ol>' +
+        `<p><strong>Keywords:</strong> ${escapeHtml(plan.keywords.join(', '))}</p>` +
+        `<p><strong>Tone:</strong> ${escapeHtml(plan.tone)} — <strong>Audience:</strong> ${escapeHtml(plan.target_audience)}</p>`;
     }
     $('plan-card').classList.remove('hidden');
   }
