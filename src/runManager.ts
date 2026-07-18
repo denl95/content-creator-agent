@@ -38,7 +38,13 @@ export function subscribe(threadId: string, fn: (e: RunEvent) => void): (() => v
 function emit(run: InternalRun, node: string, data: unknown): void {
   const event: RunEvent = { node, data, ts: Date.now() };
   run.events.push(event);
-  for (const fn of run.listeners) fn(event);
+  for (const fn of run.listeners) {
+    try {
+      fn(event);
+    } catch (err) {
+      console.error('[runManager] listener threw:', err instanceof Error ? err.message : err);
+    }
+  }
 }
 
 function summarize(node: string, value: unknown): unknown {

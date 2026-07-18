@@ -53,12 +53,15 @@ app.get('/runs/:id/events', (c) => {
     const unsubscribe = subscribe(id, (event) => {
       void stream.writeSSE({ data: JSON.stringify(event) });
     });
-    while (open) {
-      const current = getRun(id);
-      if (!current || current.status === 'done' || current.status === 'error') break;
-      await stream.sleep(1000);
+    try {
+      while (open) {
+        const current = getRun(id);
+        if (!current || current.status === 'done' || current.status === 'error') break;
+        await stream.sleep(1000);
+      }
+    } finally {
+      unsubscribe?.();
     }
-    unsubscribe?.();
   });
 });
 
