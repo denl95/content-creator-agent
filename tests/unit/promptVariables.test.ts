@@ -27,10 +27,11 @@ describe('writerVariables', () => {
 });
 
 describe('editorVariables', () => {
-  test('includes channel, target and actual word counts', () => {
-    const vars = editorVariables(plan, brief, 'five words of draft content');
+  test('includes channel, word counts, and brand style', () => {
+    const vars = editorVariables(plan, brief, 'five words of draft content', 'BRAND RULES');
     expect(vars.channel).toBe('linkedin');
     expect(vars.word_count).toBe('900');
     expect(vars.actual_word_count).toBe('5');
+    expect(vars.brand_style).toBe('BRAND RULES');
   });
 });

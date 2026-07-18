@@ -118,6 +118,7 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
       'channel',
       'word_count',
       'actual_word_count',
+      'brand_style',
       'draft_content',
     ],
     fallback: [
@@ -134,6 +135,9 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
           'Keywords required: {{keywords}}',
           'Channel: {{channel}}',
           'Target word count: {{word_count}} words (the draft below has {{actual_word_count}} words)',
+          '',
+          '--- BRAND STYLE (retrieved from style guide) ---',
+          '{{brand_style}}',
           '',
           '--- DRAFT ---',
           '{{draft_content}}',
@@ -287,6 +291,7 @@ export function editorVariables(
   plan: ContentPlan,
   brief: Brief,
   draftContent: string,
+  brandStyle: string,
 ): Record<string, string> {
   return {
     outline: formatOutline(plan.outline),
@@ -296,6 +301,7 @@ export function editorVariables(
     channel: brief.channel,
     word_count: String(brief.word_count),
     actual_word_count: String(countWords(draftContent)),
+    brand_style: brandStyle,
     draft_content: draftContent,
   };
 }

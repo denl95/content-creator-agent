@@ -4,6 +4,7 @@ import { traceOptions } from '../observability';
 import { compileManagedPrompt, editorVariables } from '../prompts/managed';
 import { EditFeedbackSchema } from '../schemas';
 import type { GraphStateType } from '../state';
+import { lookupBrandStyle } from '../tools/rag';
 
 const editorLLM = new ChatOpenAI({
   model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
@@ -20,9 +21,12 @@ export async function editor(
   if (!state.brief) throw new Error('editor: state.brief is missing');
   if (!state.draft?.content)
     throw new Error('editor: state.draft is missing — check routing from writer');
+  const brandStyle = await lookupBrandStyle(
+    `${state.brief.channel} tone of voice rules, forbidden phrases, style guide`,
+  );
   const prompt = await compileManagedPrompt(
     'editor',
-    editorVariables(state.plan, state.brief, state.draft.content),
+    editorVariables(state.plan, state.brief, state.draft.content, brandStyle),
   );
 
   const editFeedback = await editorLLM.invoke(prompt.messages, {
