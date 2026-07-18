@@ -1,6 +1,6 @@
 # content-creator-agent
 
-A multi-agent system that plans, writes, and edits blog posts and social media content before saving the final approved result. Built with LangGraph, LangChain, and Bun in TypeScript.
+A multi-agent system that plans, writes, and edits blog posts and social media content before saving the final approved result to a local drafts database (and optionally Notion). Built with LangGraph, LangChain, and Bun in TypeScript.
 
 ## Demo
 
@@ -140,6 +140,8 @@ Options:
 | `--word-count` | integer | yes |
 | `--verbose` | flag | no |
 
+Each run prints token usage and estimated cost at the end — configure costs via `PRICE_INPUT_PER_1M` / `PRICE_OUTPUT_PER_1M`.
+
 More examples:
 
 **LinkedIn post:**
@@ -180,6 +182,16 @@ bun run studio
 ```
 
 Opens the graph in Studio at `http://localhost:8123`. Submit a brief as the initial state to step through nodes visually.
+
+### Web UI & API
+
+```bash
+bun run serve
+```
+
+Opens the demo at `http://localhost:3000` — submit a brief, watch the pipeline live, approve or revise the plan, and browse the drafts library. For demos without Notion, no extra setup is needed: drafts persist to SQLite (`data/app.db` by default).
+
+API endpoints: `POST /runs`, `GET /runs/:id`, `POST /runs/:id/resume`, `GET /runs/:id/events` (SSE), `GET /drafts`, `GET /drafts/:id`, `POST /drafts/:id/publish`.
 
 ## HITL behavior
 
@@ -256,10 +268,16 @@ At runtime, the Strategist, Writer, and Editor fetch their chat prompts from Lan
 ## Tests
 
 ```bash
+bun run test:unit
+```
+
+Fast, free unit tests — also run in CI. No external API calls.
+
+```bash
 bun run test:judge
 ```
 
-Runs four LLM-as-a-Judge test files:
+Runs four LLM-as-a-Judge test files (judge tests remain manual):
 
 | File | What it tests | Assertions |
 |---|---|---|
@@ -306,7 +324,7 @@ data/
 tests/
   judge/            — LLM-as-a-Judge test files + shared schema
   fixtures/         — briefs.ts, plans.ts, bad-draft.md
-output/             — approved articles written by the pipeline
+output/             — approved/unapproved articles as Markdown (when WRITE_OUTPUT_FILES=true)
 ```
 
 ## Reliability
@@ -319,10 +337,10 @@ output/             — approved articles written by the pipeline
 
 ## Limits
 
-- **Iteration cap:** Editor loop runs at most 5 times (`MAX_ITERATIONS = 5`). If the draft is still `REVISION_NEEDED` at iteration 5, it is saved to `output/` with an `-unapproved` suffix alongside a `.review.md` sidecar with the final issues.
+- **Iteration cap:** Editor loop runs at most 5 times (`MAX_ITERATIONS = 5`). If the draft is still `REVISION_NEEDED` at iteration 5, it is saved to the SQLite database with a `review` field containing the final issues. Set `WRITE_OUTPUT_FILES=true` to also write unapproved drafts as Markdown files under `output/`.
 - **HITL:** No cap on plan revisions — the user controls this loop.
 - **RAG:** Uses Chroma (local Docker, default `http://localhost:8000`). Embeddings persist between runs; a non-empty collection with a saved source hash is reused without loading Notion. Run `bun run reindex` to refresh the source corpus and rebuild the collection.
 - **Checkpointer:** Uses `MemorySaver` (in-process). Threads do not survive process restart. Swap to `SqliteSaver` or `@langchain/langgraph-checkpoint-postgres` for persistence across runs.
 - **Search:** Tavily, max 5 results per call, capped at 10 searches per run. Requires `TAVILY_API_KEY`.
-- **Publisher:** Best-effort — if the Notion API call fails, the run does not error and output is still saved to `./output/`. Set `SKIP_PUBLISH=true` to bypass the publisher entirely regardless of Notion configuration.
+- **Publisher:** optional — drafts always persist to the SQLite database; the Notion publish runs only when `NOTION_TOKEN` and `NOTION_DRAFTS_DATABASE_ID` are set (or on demand via `POST /drafts/:id/publish` / the UI button). `SKIP_PUBLISH=true` disables the automatic graph publish.
 - **Observability:** Trace events are buffered and flushed on clean process exit. Abrupt termination (SIGKILL, unhandled crash) may drop the last batch of events before they reach Langfuse.
