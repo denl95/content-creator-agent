@@ -22,6 +22,39 @@ const ResumeSchema = z.union([
 
 export const app = new Hono();
 
+// Bun.serve closes a connection that has sent and received nothing for
+// `idleTimeout` seconds — and its default is 10. A run's SSE stream is silent
+// between node completions, and a single node routinely runs far longer than
+// that (the strategist alone does a brand lookup plus up to 10 web searches),
+// so the socket was being killed mid-run and the Next rewrite proxy logged it
+// as `socket hang up` / ECONNRESET. Two independent guards:
+//   - a comment frame every SSE_KEEPALIVE_MS, so the connection is never idle;
+//   - a raised idleTimeout, so one slow write can't undo it. Bun caps this at 255.
+export const SSE_POLL_MS = 1000;
+export const SSE_KEEPALIVE_MS = 5000;
+export const SERVER_IDLE_TIMEOUT_S = 120;
+
+/**
+ * Holds an SSE connection open while `isOpen()` is true, emitting a comment
+ * frame on the keepalive cadence. Comments (`:` lines) are discarded by
+ * EventSource, so they never surface as a `RunEvent` on the client.
+ */
+export async function pumpKeepalive(
+  stream: { write: (chunk: string) => Promise<unknown>; sleep: (ms: number) => Promise<unknown> },
+  isOpen: () => boolean,
+  { pollMs = SSE_POLL_MS, keepaliveMs = SSE_KEEPALIVE_MS } = {},
+): Promise<void> {
+  let sinceKeepalive = 0;
+  while (isOpen()) {
+    await stream.sleep(pollMs);
+    sinceKeepalive += pollMs;
+    if (sinceKeepalive >= keepaliveMs) {
+      sinceKeepalive = 0;
+      await stream.write(': keepalive\n\n');
+    }
+  }
+}
+
 const LoginSchema = z.object({ password: z.string() });
 
 app.post('/auth/login', async (c) => {
@@ -113,11 +146,11 @@ app.get('/runs/:id/events', (c) => {
       void stream.writeSSE({ data: JSON.stringify(event) });
     });
     try {
-      while (open) {
+      await pumpKeepalive(stream, () => {
+        if (!open) return false;
         const current = getRun(id);
-        if (!current || current.status === 'done' || current.status === 'error') break;
-        await stream.sleep(1000);
-      }
+        return !!current && current.status !== 'done' && current.status !== 'error';
+      });
     } finally {
       unsubscribe?.();
     }
@@ -163,5 +196,6 @@ app.post('/drafts/:id/publish', async (c) => {
 // API only — the Next.js app in web/ serves the UI and proxies here via /api/*.
 export default {
   port: Number(process.env.PORT ?? 3000),
+  idleTimeout: SERVER_IDLE_TIMEOUT_S,
   fetch: app.fetch,
 };
