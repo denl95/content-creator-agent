@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
-import { getDraft, listDrafts, setDraftNotionUrl } from './db';
+import { getDraft, getStats, listDrafts, setDraftNotionUrl } from './db';
 import { publishDraft } from './mcp/notion';
 import { getRun, resumeRun, startRun, subscribe, sweepStaleRuns } from './runManager';
 import { BriefSchema } from './schemas';
@@ -67,6 +67,8 @@ app.get('/runs/:id/events', (c) => {
 });
 
 app.get('/drafts', (c) => c.json(listDrafts()));
+
+app.get('/stats', (c) => c.json(getStats()));
 
 app.get('/drafts/:id', (c) => {
   const draft = getDraft(c.req.param('id'));

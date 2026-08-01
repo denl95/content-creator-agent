@@ -99,3 +99,75 @@ export function setDraftNotionUrl(id: string, url: string): void {
 export function setDraftCost(id: string, costUsd: number): void {
   getDb().query('UPDATE drafts SET cost_usd = ? WHERE id = ?').run(costUsd, id);
 }
+
+export type Stats = {
+  totalDrafts: number;
+  approvedCount: number;
+  approvalRate: number;
+  totalCostUsd: number;
+  avgIterations: number;
+  avgScores: { tone: number; accuracy: number; structure: number };
+  byChannel: Array<{ channel: string; count: number }>;
+  spendByDay: Array<{ day: string; costUsd: number }>;
+};
+
+type TotalsRow = {
+  totalDrafts: number;
+  approvedCount: number;
+  totalCostUsd: number;
+  avgIterations: number;
+  avgTone: number;
+  avgAccuracy: number;
+  avgStructure: number;
+};
+
+export function getStats(): Stats {
+  const database = getDb();
+
+  const totals = database
+    .query(
+      `SELECT
+         COUNT(*) AS totalDrafts,
+         COALESCE(SUM(CASE WHEN verdict = 'APPROVED' THEN 1 ELSE 0 END), 0) AS approvedCount,
+         COALESCE(SUM(cost_usd), 0) AS totalCostUsd,
+         COALESCE(AVG(iterations), 0) AS avgIterations,
+         COALESCE(AVG(tone_score), 0) AS avgTone,
+         COALESCE(AVG(accuracy_score), 0) AS avgAccuracy,
+         COALESCE(AVG(structure_score), 0) AS avgStructure
+       FROM drafts`,
+    )
+    .get() as TotalsRow;
+
+  const byChannel = database
+    .query(
+      `SELECT channel, COUNT(*) AS count
+       FROM drafts
+       GROUP BY channel
+       ORDER BY count DESC, channel ASC`,
+    )
+    .all() as Array<{ channel: string; count: number }>;
+
+  const spendByDay = database
+    .query(
+      `SELECT date(created_at) AS day, COALESCE(SUM(cost_usd), 0) AS costUsd
+       FROM drafts
+       GROUP BY day
+       ORDER BY day ASC`,
+    )
+    .all() as Array<{ day: string; costUsd: number }>;
+
+  return {
+    totalDrafts: totals.totalDrafts,
+    approvedCount: totals.approvedCount,
+    approvalRate: totals.totalDrafts === 0 ? 0 : totals.approvedCount / totals.totalDrafts,
+    totalCostUsd: totals.totalCostUsd,
+    avgIterations: totals.avgIterations,
+    avgScores: {
+      tone: totals.avgTone,
+      accuracy: totals.avgAccuracy,
+      structure: totals.avgStructure,
+    },
+    byChannel,
+    spendByDay,
+  };
+}
