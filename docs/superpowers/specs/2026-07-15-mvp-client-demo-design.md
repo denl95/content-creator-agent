@@ -28,7 +28,7 @@ Known gaps already documented in `.plans/production-readiness.md` (API layer, pe
 Ordered by demo impact:
 
 ### F1. Brand identity mismatch in all three system prompts — **critical**
-`src/prompts/strategist.ts`, `writer.ts`, `editor.ts` all open with *"Lumen, a B2B SaaS product for SMB accounting automation"*, but the brand corpus (`data/brand/brand.md`) defines Lumen as an **AI development agency for small businesses**. The agents' core identity contradicts the RAG corpus they retrieve — exactly the kind of inconsistency a prospective client would notice ("wait, why is it talking about accounting?").
+`src/prompts/strategist.ts`, `writer.ts`, `editor.ts` all open with *"EONYX, a B2B SaaS product for SMB accounting automation"*, but the brand corpus (`data/brand/brand.md`) defines EONYX as an **AI development agency for small businesses**. The agents' core identity contradicts the RAG corpus they retrieve — exactly the kind of inconsistency a prospective client would notice ("wait, why is it talking about accounting?").
 **Fix:** Update all three system prompts to the AI-agency identity, or better: remove the hardcoded company description and instruct the agent to derive identity from `brand_style_lookup`. Re-run `bun run upload-prompts` afterward (Langfuse-managed prompts override local ones at runtime — the stale text lives there too).
 
 ### F2. Writer and Editor never receive the target word count or channel — **critical**
@@ -122,7 +122,7 @@ Agencies sell ROI. Capture `usage_metadata` from each LLM response (already flow
 - Full run from brief to saved draft, driven entirely from the web UI, with live progress and cost shown; the draft then appears in the drafts library and can be pushed to Notion on demand.
 - Same topic re-run twice → two draft rows, nothing overwritten.
 - A 300-word LinkedIn brief produces a draft within ±10% of 300 words (F2 verification).
-- All three agents describe Lumen as an AI agency (F1 verification).
+- All three agents describe EONYX as an AI agency (F1 verification).
 
 ## 7. Suggested implementation order
 

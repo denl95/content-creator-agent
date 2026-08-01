@@ -75,7 +75,7 @@ Per `.cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc`: use `bun`/`bun te
 
 **Next 16 renamed `middleware.ts` to `proxy.ts`.** The file is `web/proxy.ts` and the exported function is `proxy`, not `middleware`. Its runtime is always `nodejs` (edge is unsupported), which is what lets it `fetch` the Hono server. The `matcher` is required, not optional — without it the proxy runs on `_next/static` too and blocks the login page's own CSS. `web/AGENTS.md` warns that this Next version differs from training data; the bundled docs in `web/node_modules/next/dist/docs/` are the source of truth.
 
-**Dark mode is class-based, not media-query-based.** shadcn's tokens switch on `.dark`, so a `prefers-color-scheme` media query would darken brand colours while leaving `--background` light. A blocking inline script in `web/app/layout.tsx` sets the class from the OS preference before first paint. There is no toggle.
+**Theming is class-based, not media-query-based.** shadcn's tokens switch on `.dark` and its components use `dark:` variants, so a `prefers-color-scheme` media query would recolour the brand variables while leaving shadcn's `--background` and every `dark:` utility untouched. A blocking inline script in `web/app/layout.tsx` puts `dark` or `light` on `<html>` before first paint, reading `localStorage.theme`; `components/theme-toggle.tsx` writes it. Dark is the default when nothing is stored — see the EONYX section below.
 
 Route groups: `web/app/(dashboard)/` carries the nav shell; `web/app/login/` sits outside it so the login screen renders bare.
 
@@ -90,12 +90,20 @@ Route groups: `web/app/(dashboard)/` carries the nav shell; `web/app/login/` sit
 ### Deployment is one container, and two Fly settings are load-bearing
 `Dockerfile` builds Next and the API into a single image on a `node:22-slim` base with Bun installed on top — Node is there because the Notion publisher shells out to `npx`. `docker-entrypoint.sh` runs both processes and **exits if either dies**, so the platform restarts rather than leaving a half-dead container answering HTTP.
 
-In `fly.toml`, `auto_stop_machines = false` and a single machine (`fly scale count 1`) are correctness requirements, not tuning: run state is an in-memory `Map` and a run pauses mid-flight for human approval, so a stopped machine loses in-flight runs and a second machine would let a client approve a plan on a process that never heard of their run. Verify by observation (`fly status` after idling), not by reading the config back.
+In `fly.toml`, `auto_stop_machines` must stay off and there must be exactly one machine (`fly scale count 1`). These are correctness requirements, not tuning: run state is an in-memory `Map` and a run pauses mid-flight for human approval, so a stopped machine loses in-flight runs and a second machine would let a client approve a plan on a process that never heard of their run. Verify by observation (`fly status` after idling), not by reading the config back.
+
+**Pushing to `main` deploys.** `.github/workflows/fly-deploy.yml` runs `flyctl deploy --remote-only` on every push to `main`/`master`, using the `FLY_API_TOKEN` repo secret. Two consequences worth knowing: it does **not** gate on `ci.yml`, so a red build still deploys; and because there is one machine bound to one volume, each deploy briefly takes the app down — don't push to `main` during a client demo.
+
+**Renaming the brand touches three places that don't rebuild themselves.** `src/prompts/*.ts` feed Langfuse-managed prompts, so a local edit is silently overridden until `bun run upload-prompts` runs. `data/brand/*.md` is the RAG corpus — content-hashed, so Chroma rebuilds on next use locally (`bun run reindex` forces it), and the in-process store rebuilds at container start. The judge tests in `tests/judge/` carry the brand name in their `JUDGE_SYSTEM` strings too.
 
 ### The visual identity is EONYX, pulled from claude.ai/design
 `web/app/globals.css` carries the EONYX Design System tokens (project `86b4adf4-9f78-46e9-9d4d-3eae41694ead`, type `PROJECT_TYPE_DESIGN_SYSTEM`). They were imported with the `DesignSync` tool's **read** methods — `get_project` → `list_files` → `get_file` on `tokens/*.css` — not by hand. Re-read those files to refresh the tokens; don't invent brand values.
 
-The system is **dark-first** (`--bg: #0B0B14`), with brand indigo `#201848`, electric cyan `#08C0E8` and signal red `#E80828`. There is no light mode and no theme toggle — the brand book puts the identity on near-black indigo, so `app/layout.tsx` has no `prefers-color-scheme` script. It is also **angular, editorial and flat**: the brand explicitly rejects glow/gloss, radii are 2–10px (`--radius: 6px`), and pills are reserved for tags and status (verdict badges only).
+The system is **dark-first** (`--bg: #0B0B14`), with brand indigo `#201848`, electric cyan `#08C0E8` and signal red `#E80828`. It is also **angular, editorial and flat**: the brand explicitly rejects glow/gloss, radii are 2–10px (`--radius: 6px`), and pills are reserved for tags and status (verdict badges only).
+
+**Both registers exist.** `:root` carries the dark values; `html.light` carries the light ones, ported from the DS's own `.eonyx-on-light` scope in `tokens/base.css`. Dark remains the default when nothing is stored, because the brand book puts the identity on near-black indigo. Two things differ beyond a straight inversion, and both are deliberate: the status colours are **darkened** in the light register (the dark-register green `#2BD49B` and amber `#F5B544` fail contrast on white), and shadows go from black-on-black to a soft indigo tint.
+
+The `Logo` (`web/components/logo.tsx`) is ported verbatim from the DS's `components/core/Logo.jsx` — inline SVG paths, no asset dependency. It defaults to `tone="currentColor"`, which is why the wordmark inverts with the theme for free; don't hard-code a tone in the nav.
 
 Two collisions to know about when touching tokens:
 

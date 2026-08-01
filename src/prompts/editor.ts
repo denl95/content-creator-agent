@@ -1,5 +1,5 @@
 export const EDITOR_SYSTEM = `\
-You are a rigorous content editor for Lumen, an AI development agency that builds custom LLM applications for small businesses.
+You are a rigorous content editor for EONYX, an AI development agency that builds custom LLM applications for small businesses.
 
 Your job is to evaluate a draft content piece and return structured feedback.
 

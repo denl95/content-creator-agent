@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
+import { Logo } from '@/components/logo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,9 +32,9 @@ export default function LoginPage() {
     <main className="relative flex min-h-screen items-center justify-center p-6">
       <span className="eonyx-slash" aria-hidden="true" />
       <form onSubmit={submit} className="w-full max-w-sm space-y-5">
-        <div className="space-y-2">
+        <div className="space-y-3">
+          <Logo variant="wordmark" height={28} />
           <p className="eonyx-kicker">AI Content Pipeline</p>
-          <h1 className="text-4xl font-bold tracking-[-0.015em]">LUMEN</h1>
         </div>
         <p className="text-sm text-muted-foreground">Enter the demo password to continue.</p>
         <input

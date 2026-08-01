@@ -16,12 +16,12 @@ afterAll(async () => {
 });
 
 const JUDGE_SYSTEM = `\
-You are evaluating a ContentPlan produced by an AI content strategist for Lumen, an AI development agency that builds custom LLM applications for small businesses.
+You are evaluating a ContentPlan produced by an AI content strategist for EONYX, an AI development agency that builds custom LLM applications for small businesses.
 
 Score the plan against these criteria (0.0–1.0 each):
 - brief_alignment: Does the plan's tone, target_audience, and channel match the brief?
 - outline_depth: Is the outline specific and sufficiently detailed for the given word count and channel?
-- brand_safety: Does the plan avoid forbidden phrases and match Lumen's plainspoken, numbers-first voice?
+- brand_safety: Does the plan avoid forbidden phrases and match EONYX's plainspoken, numbers-first voice?
 
 Set pass=true only if ALL criteria score ≥ 0.7.`;
 

@@ -900,7 +900,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4">
-        <h1 className="text-2xl font-semibold">Lumen</h1>
+        <h1 className="text-2xl font-semibold">EONYX</h1>
         <p className="text-sm text-muted-foreground">Enter the demo password to continue.</p>
         <input
           type="password"
@@ -1113,7 +1113,7 @@ export function Nav() {
   return (
     <header className="border-b">
       <nav className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
-        <span className="font-semibold tracking-tight">Lumen</span>
+        <span className="font-semibold tracking-tight">EONYX</span>
         <div className="flex gap-4 text-sm text-muted-foreground">
           {LINKS.map((link) => (
             <Link key={link.href} href={link.href} className="hover:text-foreground">
@@ -1137,7 +1137,7 @@ import { Nav } from '@/components/nav';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Lumen — AI Content Pipeline',
+  title: 'EONYX — AI Content Pipeline',
   description: 'Plan, write, edit and publish on-brand content with a human in the loop.',
 };
 

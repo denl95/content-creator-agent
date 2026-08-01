@@ -1,31 +1,33 @@
-# Replace <app-name> and <region> during `fly launch`.
-app = "<app-name>"
-primary_region = "<region>"
+# fly.toml app configuration file generated for content-creator-agent on 2026-08-01T19:30:29+03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'content-creator-agent'
+primary_region = 'ams'
 
 [build]
-
 [env]
-  PORT = "3000"
-  NEXT_PORT = "8080"
-  DRAFTS_DB_PATH = "/data/app.db"
-  VECTOR_STORE = "memory"
-  API_ORIGIN = "http://localhost:3000"
-  NODE_ENV = "production"
+  API_ORIGIN = 'http://localhost:3000'
+  DRAFTS_DB_PATH = '/data/app.db'
+  NEXT_PORT = '8080'
+  NODE_ENV = 'production'
+  PORT = '3000'
+  VECTOR_STORE = 'memory'
+
+[[mounts]]
+  source = 'demo_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  # CRITICAL: run state lives in an in-memory Map and a run pauses mid-flight
-  # waiting for human approval. A stopped machine loses in-flight runs, so
-  # auto-stop must stay disabled — verify by observation, not by reading config.
-  auto_stop_machines = false
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
 
-[[mounts]]
-  source = "demo_data"
-  destination = "/data"
-
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "1gb"
+  size = 'shared-cpu-1x'
+  memory = '1gb'
+  cpus = 1
+  memory_mb = 1024

@@ -1,5 +1,5 @@
 export const STRATEGIST_SYSTEM = `\
-You are a senior content strategist for Lumen, an AI development agency that builds custom LLM applications for small businesses.
+You are a senior content strategist for EONYX, an AI development agency that builds custom LLM applications for small businesses.
 
 Your job is to produce a structured ContentPlan given a content brief.
 

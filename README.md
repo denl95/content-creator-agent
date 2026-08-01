@@ -95,7 +95,7 @@ The collection (`brand` by default) is created and indexed automatically on firs
 The Strategist queries a vector store built from your brand assets. There are two sources:
 
 - **Notion (recommended)** — set `NOTION_TOKEN` and `NOTION_BRAND_PAGE_ID`. Create an integration at [notion.so/profile/integrations](https://www.notion.so/profile/integrations), share the parent brand page with it, and the agent will fetch all child pages via the [Notion MCP server](https://github.com/makenotion/notion-mcp-server) when the Chroma collection needs to be built or explicitly refreshed.
-- **Local files (fallback)** — if Notion is unset or unreachable, the agent reads `data/brand/*.md` from disk. The repo ships with a sample corpus describing **Lumen**, a fictional AI development agency that builds custom LLM apps for small businesses. All brand content and example posts are written in Ukrainian.
+- **Local files (fallback)** — if Notion is unset or unreachable, the agent reads `data/brand/*.md` from disk. The repo ships with a sample corpus describing **EONYX**, a fictional AI development agency that builds custom LLM apps for small businesses. All brand content and example posts are written in Ukrainian.
 
 ![Brand page in Notion](screenshots/notion-2.png)
 
@@ -199,6 +199,8 @@ Starts the Hono API on `:3000` and the Next.js dashboard on `http://localhost:30
 | `/drafts/[id]` | Full content, editor scores and issues, publish to Notion |
 
 The dashboard is frontend-only: it reaches the API exclusively through a `/api/*` rewrite, so the Hono server keeps owning the pipeline, SQLite and SSE.
+
+**Visual identity.** The dashboard wears the [EONYX Design System](https://claude.ai/design), imported from Claude Design rather than reimplemented — its `tokens/*.css` were pulled with the `DesignSync` tool's read methods (`get_project` → `list_files` → `get_file`) and mapped onto shadcn's semantic variables in `web/app/globals.css`, and the wordmark is ported verbatim from the system's own `Logo` component. Dark-first near-black indigo with an electric-cyan accent, Montserrat + JetBrains Mono, angular flat surfaces. A toggle in the nav switches to the light register; the choice persists and applies before first paint.
 
 **Auth.** Setting `DEMO_PASSWORD` puts a shared-password gate in front of everything (needed for any public deployment — an unguarded URL spends your OpenAI credits). Leaving it unset disables auth entirely, which is the local-dev default.
 
@@ -351,6 +353,8 @@ src/
   runManager.ts     — drives the graph for HTTP, SSE pub-sub, TTL sweep
 web/                — Next.js dashboard (own package.json, tsconfig, eslint)
   app/(dashboard)/  — /, /run, /drafts, /drafts/[id]
+  app/globals.css   — EONYX tokens (dark :root + html.light) → shadcn vars
+  components/       — logo, nav, theme-toggle, charts, badges; ui/ is shadcn
   app/login/        — password gate, outside the dashboard shell
   proxy.ts          — Next 16 route protection (was middleware.ts pre-16)
 scripts/

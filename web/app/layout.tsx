@@ -18,7 +18,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Lumen — AI Content Pipeline',
+  title: 'EONYX — AI Content Pipeline',
   description: 'Plan, write, edit and publish on-brand content with a human in the loop.',
 };
 
