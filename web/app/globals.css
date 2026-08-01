@@ -271,3 +271,64 @@ body {
   clip-path: polygon(0 0, 100% 0, 0 100%);
   pointer-events: none;
 }
+
+/* ============================================================
+   Light register — EONYX's inverted surfaces (.eonyx-on-light in
+   the DS's base.css). The brand is dark-first, so dark stays the
+   default and light is an explicit opt-in via html.light.
+   ============================================================ */
+html.light {
+  --bg:              #FFFFFF;
+  --bg-deep:         #F4F5F8;
+  --surface:         #FFFFFF;
+  --surface-raised:  #F4F5F8;
+  --surface-overlay: #E7E8EF;
+  --surface-inset:   #F4F5F8;
+
+  --border-faint:  rgba(11,11,20,0.07);
+  --border-strong: rgba(11,11,20,0.22);
+  --hairline:      rgba(11,11,20,0.12);
+
+  --text-primary:   #0B0B14;
+  --text-secondary: #4F5268;
+  --text-muted:     #76798F;
+  --text-faint:     #A3A6B8;
+  --text-inverse:   #FFFFFF;
+  --text-accent:    var(--cyan-600);
+
+  /* shadcn semantics on the light ground */
+  --background:             var(--bg);
+  --foreground:             var(--text-primary);
+  --card:                   #FFFFFF;
+  --card-foreground:        var(--text-primary);
+  --popover:                #FFFFFF;
+  --popover-foreground:     var(--text-primary);
+  --primary:                var(--cyan-500);
+  --primary-foreground:     var(--accent-contrast);
+  --secondary:              var(--surface-raised);
+  --secondary-foreground:   var(--text-primary);
+  --muted:                  var(--surface-raised);
+  --muted-foreground:       var(--text-muted);
+  --accent:                 var(--surface-overlay);
+  --accent-foreground:      var(--text-primary);
+  --destructive:            var(--red-500);
+  --destructive-foreground: #FFFFFF;
+  --border:                 rgba(11,11,20,0.12);
+  --input:                  rgba(11,11,20,0.20);
+  --ring:                   var(--cyan-500);
+
+  --sidebar:            #FFFFFF;
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-accent:     var(--surface-overlay);
+  --sidebar-border:     rgba(11,11,20,0.12);
+
+  /* Status colours need more depth to hold contrast on white —
+     the dark-register greens/ambers wash out. */
+  --state-approved:    #0E7C57;
+  --state-approved-bg: rgba(43,212,155,0.16);
+  --state-revision:    #8A5A00;
+  --state-revision-bg: rgba(245,181,68,0.20);
+
+  --shadow-sm: 0 1px 2px rgba(11,11,20,0.08);
+  --shadow-md: 0 6px 20px rgba(11,11,20,0.10);
+}
