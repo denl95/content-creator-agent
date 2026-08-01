@@ -1,4 +1,6 @@
 import { mergeConfigs, type RunnableConfig } from '@langchain/core/runnables';
+import { reportActivity } from '../activity';
+import { MAX_ITERATIONS } from '../constants';
 import { makeChatModel } from '../model';
 import { traceOptions } from '../observability';
 import { compileManagedPrompt, editorVariables } from '../prompts/managed';
@@ -21,6 +23,16 @@ export async function editor(
   if (!state.brief) throw new Error('editor: state.brief is missing');
   if (!state.draft?.content)
     throw new Error('editor: state.draft is missing — check routing from writer');
+  reportActivity(threadId, {
+    step: 'editor',
+    kind: 'reviewing',
+    detail: `pass ${state.iteration} of ${MAX_ITERATIONS}`,
+  });
+  reportActivity(threadId, {
+    step: 'editor',
+    kind: 'brand_style_lookup',
+    detail: `"${state.brief.channel} tone of voice rules"`,
+  });
   const brandStyle = await lookupBrandStyle(
     `${state.brief.channel} tone of voice rules, forbidden phrases, style guide`,
   );

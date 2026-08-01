@@ -6,6 +6,7 @@ import { OpenAIEmbeddings } from '@langchain/openai';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import type { Collection, CollectionMetadata } from 'chromadb';
 import { z } from 'zod';
+import { reportActivity } from '../activity';
 import { type BrandPage, fetchBrandPages } from '../mcp/notion';
 import { MemoryVectorStore } from './memoryVectorStore';
 
@@ -208,8 +209,12 @@ export async function lookupBrandStyle(query: string): Promise<string> {
 }
 
 export const brandStyleRetriever = tool(
-  async ({ query }) => {
-    console.log(`[brand_style_lookup] "${query}"`);
+  async ({ query }, config) => {
+    // No `step` — inherited from the calling node; see reportActivity.
+    reportActivity(config?.configurable?.thread_id as string | undefined, {
+      kind: 'brand_style_lookup',
+      detail: `"${query}"`,
+    });
     return lookupBrandStyle(query);
   },
   {

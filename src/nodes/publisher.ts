@@ -1,4 +1,5 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
+import { reportActivity } from '../activity';
 import { setDraftNotionUrl } from '../db';
 import { publishDraft } from '../mcp/notion';
 import type { GraphStateType } from '../state';
@@ -7,22 +8,19 @@ export async function publisher(
   state: GraphStateType,
   config?: RunnableConfig,
 ): Promise<Partial<GraphStateType>> {
-  if (process.env.SKIP_PUBLISH === 'true') {
-    console.log('[publisher] SKIP_PUBLISH=true — skipping Notion publish');
+  const threadId = config?.configurable?.thread_id as string | undefined;
+  const skip = (detail: string): Partial<GraphStateType> => {
+    reportActivity(threadId, { step: 'publisher', kind: 'skipped', detail });
     return {};
-  }
+  };
+
+  if (process.env.SKIP_PUBLISH === 'true') return skip('SKIP_PUBLISH=true');
 
   const databaseId = process.env.NOTION_DRAFTS_DATABASE_ID;
-  if (!databaseId || !process.env.NOTION_TOKEN) {
-    console.log('[publisher] Notion not configured — skipping publish');
-    return {};
-  }
+  if (!databaseId || !process.env.NOTION_TOKEN) return skip('Notion is not configured');
 
   const content = state.finalContent ?? state.draft?.content;
-  if (!content) {
-    console.warn('[publisher] No content to publish — skipping');
-    return {};
-  }
+  if (!content) return skip('no content to publish');
 
   const topic = state.brief?.topic ?? 'Untitled';
   const channel = state.brief?.channel ?? 'blog';
@@ -30,7 +28,11 @@ export async function publisher(
   const status = state.editFeedback?.verdict === 'APPROVED' ? 'Approved' : 'Unapproved';
 
   try {
-    console.log(`[publisher] Creating Notion page for "${topic}"...`);
+    reportActivity(threadId, {
+      step: 'publisher',
+      kind: 'publishing',
+      detail: `creating Notion page for "${topic}"`,
+    });
     const page = await publishDraft({
       databaseId,
       title: topic,
@@ -39,14 +41,18 @@ export async function publisher(
       wordCount,
       status,
     });
-    console.log(`[publisher] Published: ${page.url}`);
-    const threadId = config?.configurable?.thread_id as string | undefined;
+    reportActivity(threadId, { step: 'publisher', kind: 'published', detail: page.url });
     if (threadId) setDraftNotionUrl(threadId, page.url);
     return { notionUrl: page.url };
   } catch (err) {
-    console.error(
-      `[publisher] Failed to publish to Notion: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    // Publishing stays best-effort — the draft is already committed to SQLite by
+    // the finalizer, so a Notion outage must not fail the run. It used to fail
+    // to stdout only, though, which left the dashboard claiming a clean finish.
+    reportActivity(threadId, {
+      step: 'publisher',
+      kind: 'publish_failed',
+      detail: err instanceof Error ? err.message : String(err),
+    });
     return {};
   }
 }

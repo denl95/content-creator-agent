@@ -1,4 +1,5 @@
 import { Command } from '@langchain/langgraph';
+import { clearActivitySink, setActivitySink } from './activity';
 import { CostTracker } from './costTracker';
 import { setDraftCost } from './db';
 import { graph } from './graph';
@@ -101,6 +102,7 @@ async function drive(run: InternalRun, input: any): Promise<void> {
   } finally {
     if (run.status === 'done' || run.status === 'error') {
       resetSearchCount(run.threadId);
+      clearActivitySink(run.threadId);
     }
   }
 }
@@ -119,6 +121,15 @@ export function startRun(brief: Brief): string {
   };
   runs.set(threadId, run);
   resetSearchCount(threadId);
+  // Tool- and node-level progress, plus a running cost/token total so the
+  // dashboard can show a live counter instead of only a figure at the end.
+  setActivitySink(threadId, (activity) => {
+    emit(run, 'activity', {
+      ...activity,
+      costUsd: run.tracker.costUsd(),
+      tokens: run.tracker.totalTokens(),
+    });
+  });
   void drive(run, makeInitialState(brief));
   return threadId;
 }
@@ -133,6 +144,7 @@ export function sweepStaleRuns(now = Date.now()): number {
     if (isStaleAwaitingApproval || isStaleTerminal) {
       runs.delete(threadId);
       resetSearchCount(threadId);
+      clearActivitySink(threadId);
       removed++;
     }
   }
