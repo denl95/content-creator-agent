@@ -22,12 +22,12 @@ The remaining gap is presentational and logistical: the UI reads as a prototype 
 - One new backend endpoint: `GET /stats`
 - A shared-password gate over the whole app
 - Swapping Chroma for an in-process vector store in deployed environments
-- Deployment to Railway as a single container
+- Deployment to Fly.io as a single container
 
 **Explicitly out of scope**
 - Authentication with user accounts, roles, or multi-tenancy
 - Moving run state out of memory, or a persistent LangGraph checkpointer
-- Postgres migration (the Railway persistent volume keeps SQLite viable)
+- Postgres migration (the Fly persistent volume keeps SQLite viable)
 - Horizontal scaling — the in-memory run store means exactly one instance
 - Editing drafts in the UI; publishing to Notion remains the only write action on a draft
 
@@ -98,15 +98,31 @@ Chroma remains the local-dev default, so existing behavior, the corpus-hash cach
 
 ## 7. Deployment
 
-**Railway**, single container, roughly $5/month.
+**Fly.io**, single container, roughly $3–6/month.
 
-The pipeline's requirements rule out most cheaper options: runs take minutes and pause mid-flight awaiting human approval, and run state lives in an in-memory `Map`. Any platform that sleeps, scales to zero, or recycles instances destroys in-progress runs. Railway does not sleep by default and offers persistent volumes on the base plan — which is what lets SQLite survive and keeps Postgres out of scope.
+**Why not Railway:** Railway's Hobby plan ($5/mo) restricts usage to "internal, personal, non-commercial use" in its Terms of Service. Demoing agency capability to prospective clients is commercial, so Railway would require the Pro plan at $20/mo — 4–6× the cost of equivalent alternatives for a single app. Fly.io has no comparable hobby-only clause and bills usage directly.
 
-Railway bills usage rather than per-service, so additional demo apps later cost overage rather than another full plan fee.
+**The hard constraint this platform must satisfy:** runs take minutes and pause mid-flight awaiting human approval, and run state lives in an in-memory `Map`. Any platform that sleeps, scales to zero, or recycles instances destroys in-progress runs. On Fly this is a live risk rather than a default-safe property — **machines auto-stop by default and must be explicitly pinned**:
 
-**Container shape:** one image, built with a Dockerfile, running Hono and Next together. SQLite lives on a mounted persistent volume via `DRAFTS_DB_PATH`. Secrets (`OPENAI_API_KEY`, `TAVILY_API_KEY`, `DEMO_PASSWORD`, optional Notion and Langfuse keys) are Railway environment variables, never baked into the image.
+```toml
+# fly.toml
+[http_service]
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+```
 
-Rejected: Fly.io (machines auto-stop by default — precisely the failure mode that breaks in-memory runs), Render (per-service pricing; free tier has no persistent disk), Vercel (cannot host a long-running stateful backend at all).
+Getting this wrong produces a demo that works in testing and dies mid-run in front of a client. It must be verified by observing a machine stay up through an idle period, not by reading the config back.
+
+**Single instance:** `fly scale count 1`. More than one machine means requests round-robin between processes with separate in-memory run stores, so a client could approve a plan on a machine that has never heard of that run.
+
+**Storage:** a Fly volume mounted at `/data`, with `DRAFTS_DB_PATH=/data/app.db`. Volumes are region-pinned, so the machine must be pinned to the same region. Cost is ~$0.15/GB/month; 1GB is ample.
+
+**Secrets:** `fly secrets set` for `OPENAI_API_KEY`, `TAVILY_API_KEY`, `DEMO_PASSWORD`, and the optional Notion/Langfuse keys. Never baked into the image.
+
+**Sizing:** Hono + Next + startup embeddings should fit in 512MB–1GB (`shared-cpu-1x`). Next's *build* is the memory-hungry step; if Fly's remote builder OOMs, build locally and push, or use a larger builder. Runtime memory should be measured after first deploy rather than assumed.
+
+Rejected: Render (per-service pricing, $7/mo each, scaling linearly per demo app), Railway (commercial use requires $20/mo Pro), Vercel (cannot host a long-running stateful backend at all), raw VPS (cheapest, but TLS, OS updates, and monitoring become your problem).
 
 ## 8. Risks
 
@@ -116,7 +132,7 @@ Rejected: Fly.io (machines auto-stop by default — precisely the failure mode t
 
 **Notion MCP in a container.** The publisher spawns `npx -y @notionhq/notion-mcp-server`, which requires Node and network access inside the image. If this proves awkward to containerize, Notion publishing degrades gracefully — it is already optional and best-effort, and drafts are never lost when it fails.
 
-**Single instance is a hard constraint.** In-memory run state means the container must never run more than one replica. This needs to be set explicitly in Railway, not assumed.
+**Single instance is a hard constraint.** In-memory run state means the deployment must never run more than one machine, and that machine must never auto-stop. On Fly both are opt-out rather than default (see §7). This is the single most likely way the deployed demo fails in front of a client, so it is verified by observation, not configuration review.
 
 ## 9. Testing
 
@@ -125,16 +141,17 @@ Rejected: Fly.io (machines auto-stop by default — precisely the failure mode t
 - Unit tests for the in-process vector store's cosine ranking, using stub vectors so no embedding API call is made
 - The existing 19 unit tests stay green; `bunx biome ci .` stays clean
 - Frontend gets manual browser verification driving a real end-to-end run, not just typecheck. Every significant bug found in this project so far — the dropped cost-tracking callback, the SSE dedup collision, the reasoning-model rejection — surfaced only when the pipeline actually ran. UI correctness will be no different.
-- Post-deploy smoke test on the live Railway URL: log in, run a brief end to end, confirm the draft persists across a container restart
+- Post-deploy smoke test on the live Fly URL: log in, run a brief end to end, confirm the draft persists across a machine restart, and confirm the machine is still running after an idle period (proving auto-stop is genuinely disabled)
 
 ## 10. Success criteria
 
 1. A client can be sent a URL, enter a password, and generate a piece of content end to end without assistance
 2. Live pipeline progress streams correctly through the deployed proxy
-3. Drafts survive a container restart (persistent volume verified, not assumed)
-4. The dashboard reads as designed at three drafts, not just at thirty
-5. `public/index.html` is deleted, with `/run` at full parity
-6. The whole thing costs about $5/month, with OpenAI spend gated behind the password
+3. Drafts survive a machine restart (persistent volume verified, not assumed)
+4. The machine is still running after an idle period — auto-stop genuinely disabled
+5. The dashboard reads as designed at three drafts, not just at thirty
+6. `public/index.html` is deleted, with `/run` at full parity
+7. Hosting costs roughly $3–6/month on a commercially-licensed plan, with OpenAI spend gated behind the password
 
 ## 11. Implementation phases
 
@@ -142,5 +159,5 @@ Rejected: Fly.io (machines auto-stop by default — precisely the failure mode t
 2. **Next.js scaffold + SSE spike** — `web/`, Tailwind + shadcn, rewrites, and an immediate end-to-end SSE verification before building anything on top of it
 3. **Design system** — tokens, type scale, dark mode, shared components
 4. **Screens** — `/run` first (parity, unblocks deleting the old UI), then `/drafts` and `/drafts/[id]`, then `/`
-5. **Containerize + deploy** — Dockerfile, Railway service, volume, env vars, live smoke test
+5. **Containerize + deploy** — Dockerfile, `fly.toml` with auto-stop disabled and `count 1`, volume, secrets, live smoke test
 6. **Cleanup** — delete `public/index.html`, update README and CLAUDE.md
