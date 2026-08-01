@@ -12,6 +12,8 @@
     "lint": "biome lint --write",
     "typecheck": "tsc --noEmit",
     "serve": "bun run src/server.ts",
+    "web": "cd web && bun run dev --port ${NEXT_PORT:-3001}",
+    "dev:all": "bun run serve & bun run web",
     "test:unit": "bun test tests/unit",
     "test:judge": "DRAFTS_DB_PATH=:memory: MAX_ITERATIONS=2 MAX_SEARCHES=3 bun test tests/judge",
     "reindex": "bun run scripts/reindex.ts",

@@ -823,23 +823,25 @@ git commit -m "feat: scaffold Next.js app with API rewrites and verify SSE strea
 ### Task 5: Login page and route protection
 
 **Files:**
-- Create: `web/middleware.ts`, `web/app/login/page.tsx`
-- Test: manual (Next middleware has no unit-test harness in this project)
+- Create: `web/proxy.ts`, `web/app/login/page.tsx`
+- Test: manual (Next's proxy layer has no unit-test harness in this project)
+
+**Next.js 16 note:** the `middleware.ts` convention is **deprecated and renamed to `proxy.ts`**, with the exported function renamed from `middleware` to `proxy` (see `node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md`). The proxy runtime is always `nodejs` and cannot be configured to `edge` — which suits us, since it needs to `fetch` the Hono server. Without a `matcher`, proxy runs on *every* request including `_next/static`, so the negative match below is required, not optional.
 
 **Interfaces:**
 - Consumes: `POST /auth/login`, `GET /auth/check` from Task 3, via `/api/auth/*`.
 - Produces: every page except `/login` redirects to `/login` when unauthenticated. Auth is a no-op when `DEMO_PASSWORD` is unset on the server.
 
-- [ ] **Step 1: Write the middleware**
+- [ ] **Step 1: Write the proxy**
 
-Create `web/middleware.ts`:
+Create `web/proxy.ts`:
 
 ```ts
 import { type NextRequest, NextResponse } from 'next/server';
 
 const API_ORIGIN = process.env.API_ORIGIN ?? 'http://localhost:3000';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Single source of truth: the Hono server decides whether this cookie is valid.
   // It answers 200 unconditionally when DEMO_PASSWORD is unset, so local dev is unaffected.
   const check = await fetch(`${API_ORIGIN}/auth/check`, {
@@ -944,7 +946,7 @@ Stop both processes.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add web/middleware.ts web/app/login/page.tsx
+git add web/proxy.ts web/app/login/page.tsx
 git commit -m "feat: gate the dashboard behind a shared password"
 ```
 
@@ -2266,7 +2268,7 @@ Add a `web/` section to the architecture notes covering:
 
 - Next.js lives in `web/`, is frontend-only, and reaches the API exclusively through the `/api/*` rewrite — never rewrite bare `/drafts` or `/runs`, as they collide with page routes
 - `web/` is excluded from root Biome and tsc and has its own ESLint/tsconfig
-- Auth has a single source of truth: `src/auth.ts` on the Hono side; Next's middleware delegates to `GET /auth/check` rather than duplicating the HMAC
+- Auth has a single source of truth: `src/auth.ts` on the Hono side; Next's `proxy.ts` delegates to `GET /auth/check` rather than duplicating the HMAC
 - SSE dedup is keyed on `seq`, not `ts` (see the existing note in this file), and the `/run` page must preserve that
 - Whether Next ended up running on Bun or Node in `web/` (record the actual outcome from Task 4)
 
