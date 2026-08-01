@@ -7,9 +7,11 @@ import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import type { Collection, CollectionMetadata } from 'chromadb';
 import { z } from 'zod';
 import { type BrandPage, fetchBrandPages } from '../mcp/notion';
+import { MemoryVectorStore } from './memoryVectorStore';
 
 const BRAND_DIR = 'data/brand';
 const COLLECTION = process.env.CHROMA_COLLECTION ?? 'brand';
+const VECTOR_STORE = process.env.VECTOR_STORE ?? 'chroma';
 
 const _chromaUrl = new URL(process.env.CHROMA_URL ?? 'http://localhost:8000');
 const CHROMA_PARAMS = {
@@ -159,7 +161,46 @@ export async function reindex(): Promise<void> {
   await storePromise;
 }
 
+let memoryStorePromise: Promise<MemoryVectorStore> | null = null;
+
+async function buildMemoryStore(): Promise<MemoryVectorStore> {
+  const docs = (await loadFromNotion()) ?? (await loadFromLocal());
+  const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 800, chunkOverlap: 100 });
+  const chunkLists = await Promise.all(
+    docs.map((d) => splitter.createDocuments([d.content], [{ source: d.source }])),
+  );
+  const texts = chunkLists.flat().map((chunk) => chunk.pageContent);
+
+  const embeddings = new OpenAIEmbeddings({ model: 'text-embedding-3-small' });
+  const vectors = await embeddings.embedDocuments(texts);
+
+  const store = new MemoryVectorStore();
+  texts.forEach((text, i) => {
+    const vector = vectors[i];
+    if (vector) store.add(text, vector);
+  });
+  console.log(
+    `[rag] Built in-process vector store — ${store.size} chunks from ${docs.length} docs`,
+  );
+  return store;
+}
+
+function getMemoryStore(): Promise<MemoryVectorStore> {
+  if (!memoryStorePromise) memoryStorePromise = buildMemoryStore();
+  return memoryStorePromise;
+}
+
+async function lookupBrandStyleMemory(query: string): Promise<string> {
+  const store = await getMemoryStore();
+  const embeddings = new OpenAIEmbeddings({ model: 'text-embedding-3-small' });
+  const queryVector = await embeddings.embedQuery(query);
+  const results = store.search(queryVector, 4);
+  if (results.length === 0) return 'No relevant brand style documents found.';
+  return results.join('\n---\n');
+}
+
 export async function lookupBrandStyle(query: string): Promise<string> {
+  if (VECTOR_STORE === 'memory') return lookupBrandStyleMemory(query);
   const store = await getStore();
   const results = await store.similaritySearch(query, 4);
   if (results.length === 0) return 'No relevant brand style documents found.';
