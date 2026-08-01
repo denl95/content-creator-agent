@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import { Hono, type MiddlewareHandler } from 'hono';
-import { serveStatic } from 'hono/bun';
 import { getCookie, setCookie } from 'hono/cookie';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
@@ -161,8 +160,7 @@ app.post('/drafts/:id/publish', async (c) => {
   }
 });
 
-app.use('/*', serveStatic({ root: './public' }));
-
+// API only — the Next.js app in web/ serves the UI and proxies here via /api/*.
 export default {
   port: Number(process.env.PORT ?? 3000),
   fetch: app.fetch,
