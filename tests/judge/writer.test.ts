@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import 'dotenv/config';
-import { shutdown } from '../../src/observability';
 import { writer } from '../../src/nodes/writer';
+import { shutdown } from '../../src/observability';
 import { writerFixturePlan } from '../fixtures/plans';
 import { makeJudge } from './schema';
 
@@ -10,7 +10,7 @@ afterAll(async () => {
 });
 
 const JUDGE_SYSTEM = `\
-You are evaluating a draft article produced by an AI writer for Lumen, a B2B SaaS accounting product.
+You are evaluating a draft article produced by an AI writer for Lumen, an AI development agency that builds custom LLM applications for small businesses.
 
 Score the draft against these criteria (0.0–1.0 each):
 - outline_coverage: Does the draft explicitly address every outline item from the plan?
@@ -31,7 +31,7 @@ describe('Writer judge', () => {
   test('Draft covers all outline items and uses keywords', async () => {
     const state = {
       brief: {
-        topic: 'bookkeeping automation',
+        topic: 'AI assistant automation for small business',
         target_audience: 'SMB owners',
         channel: 'blog' as const,
         tone: 'professional',
@@ -49,6 +49,7 @@ describe('Writer judge', () => {
 
     // @ts-expect-error — partial state is fine for node invocation
     const patch = await writer(state);
+    // biome-ignore lint/style/noNonNullAssertion: harness-invoked node call always populates this field
     const draft = patch.draft!;
 
     // Harness check: keyword coverage ≥ 75% (no LLM needed)

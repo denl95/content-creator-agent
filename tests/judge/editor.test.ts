@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import 'dotenv/config';
-import { shutdown } from '../../src/observability';
 import { editor } from '../../src/nodes/editor';
+import { shutdown } from '../../src/observability';
 import { writerFixturePlan } from '../fixtures/plans';
 
 afterAll(async () => {
@@ -34,6 +34,7 @@ describe('Editor judge', () => {
 
     // @ts-expect-error — partial state is fine for node invocation
     const patch = await editor(state);
+    // biome-ignore lint/style/noNonNullAssertion: harness-invoked node call always populates this field
     const fb = patch.editFeedback!;
 
     expect(fb.verdict).toBe('REVISION_NEEDED');

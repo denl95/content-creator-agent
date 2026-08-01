@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import 'dotenv/config';
-import { shutdown } from '../../src/observability';
 import { strategist } from '../../src/nodes/strategist';
-import { resetSearchCount } from '../../src/tools/search';
+import { shutdown } from '../../src/observability';
 import { makeInitialState } from '../../src/state';
+import { resetSearchCount } from '../../src/tools/search';
 import { blogBrief, linkedinBrief, twitterBrief } from '../fixtures/briefs';
 import { makeJudge } from './schema';
 
@@ -16,7 +16,7 @@ afterAll(async () => {
 });
 
 const JUDGE_SYSTEM = `\
-You are evaluating a ContentPlan produced by an AI content strategist for Lumen, a B2B SaaS accounting product.
+You are evaluating a ContentPlan produced by an AI content strategist for Lumen, an AI development agency that builds custom LLM applications for small businesses.
 
 Score the plan against these criteria (0.0–1.0 each):
 - brief_alignment: Does the plan's tone, target_audience, and channel match the brief?
@@ -41,6 +41,7 @@ async function runStrategist(brief: Parameters<typeof makeInitialState>[0]) {
     finalContent: null,
     messages: [],
   });
+  // biome-ignore lint/style/noNonNullAssertion: harness-invoked node call always populates this field
   return patch.plan!;
 }
 

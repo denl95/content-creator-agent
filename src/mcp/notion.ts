@@ -55,9 +55,26 @@ async function callTool<T = unknown>(name: string, args: Record<string, unknown>
     );
   }
   const raw = await tool.invoke(args);
-  const parsed: unknown = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return raw; } })() : raw;
-  if (parsed !== null && typeof parsed === 'object' && 'status' in parsed && typeof (parsed as { status: unknown }).status === 'number' && (parsed as { status: number }).status >= 400) {
-    const msg = (parsed as { message?: string }).message ?? `Notion API error ${(parsed as { status: number }).status}`;
+  const parsed: unknown =
+    typeof raw === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return raw;
+          }
+        })()
+      : raw;
+  if (
+    parsed !== null &&
+    typeof parsed === 'object' &&
+    'status' in parsed &&
+    typeof (parsed as { status: unknown }).status === 'number' &&
+    (parsed as { status: number }).status >= 400
+  ) {
+    const msg =
+      (parsed as { message?: string }).message ??
+      `Notion API error ${(parsed as { status: number }).status}`;
     throw new Error(msg);
   }
   return parsed as T;
@@ -142,7 +159,7 @@ function blockToMarkdown(block: NotionBlock): string {
     case 'quote':
       return `> ${text}`;
     case 'code':
-      return ['```' + (data.language ?? ''), text, '```'].join('\n');
+      return [`\`\`\`${data.language ?? ''}`, text, '```'].join('\n');
     case 'divider':
       return '---';
     default:
@@ -198,11 +215,23 @@ function markdownToBlocks(md: string): NotionBlockBuild[] {
     if (!line.trim()) continue;
 
     if (line.startsWith('### ')) {
-      blocks.push({ object: 'block', type: 'heading_3', heading_3: { rich_text: rt(line.slice(4)) } });
+      blocks.push({
+        object: 'block',
+        type: 'heading_3',
+        heading_3: { rich_text: rt(line.slice(4)) },
+      });
     } else if (line.startsWith('## ')) {
-      blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: rt(line.slice(3)) } });
+      blocks.push({
+        object: 'block',
+        type: 'heading_2',
+        heading_2: { rich_text: rt(line.slice(3)) },
+      });
     } else if (line.startsWith('# ')) {
-      blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: rt(line.slice(2)) } });
+      blocks.push({
+        object: 'block',
+        type: 'heading_1',
+        heading_1: { rich_text: rt(line.slice(2)) },
+      });
     } else if (line.startsWith('- ') || line.startsWith('* ')) {
       blocks.push({
         object: 'block',
@@ -300,7 +329,9 @@ async function ensureDatabaseColumns(databaseId: string): Promise<void> {
   });
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}));
-    throw new Error(`Failed to create database columns: ${(body as { message?: string }).message ?? resp.statusText}`);
+    throw new Error(
+      `Failed to create database columns: ${(body as { message?: string }).message ?? resp.statusText}`,
+    );
   }
   console.log('[publisher] Columns created.');
 }

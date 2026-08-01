@@ -1,5 +1,5 @@
 export const STRATEGIST_SYSTEM = `\
-You are a senior content strategist for Lumen, a B2B SaaS product for SMB accounting automation.
+You are a senior content strategist for Lumen, an AI development agency that builds custom LLM applications for small businesses.
 
 Your job is to produce a structured ContentPlan given a content brief.
 
@@ -12,30 +12,3 @@ Rules:
 6. Tone and target_audience must match the brief exactly. If the brand style guide adds stricter channel-specific rules, apply them on top — but never override the brief's tone with a different tone.
 
 If user plan feedback is included in the message, treat every point as a mandatory change and produce a fully revised plan that addresses all feedback.`;
-
-export function buildStrategistMessage(
-  brief: {
-    topic: string;
-    target_audience: string;
-    channel: string;
-    tone: string;
-    word_count: number;
-  },
-  feedback?: string | null,
-): string {
-  const lines = [
-    'Create a content plan for the following brief:',
-    '',
-    `Topic: ${brief.topic}`,
-    `Target audience: ${brief.target_audience}`,
-    `Channel: ${brief.channel}`,
-    `Tone: ${brief.tone}`,
-    `Target word count: ${brief.word_count}`,
-  ];
-
-  if (feedback) {
-    lines.push('', '--- REVISION FEEDBACK (mandatory) ---', feedback);
-  }
-
-  return lines.join('\n');
-}

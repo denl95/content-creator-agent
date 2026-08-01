@@ -1,4 +1,4 @@
-import type { RunnableConfig } from '@langchain/core/runnables';
+import { mergeConfigs, type RunnableConfig } from '@langchain/core/runnables';
 import { createAgent } from 'langchain';
 import { model } from '../model';
 import { traceOptions } from '../observability';
@@ -30,7 +30,7 @@ export async function strategist(
     {
       messages,
     },
-    {
+    mergeConfigs(config, {
       runName: isRevision ? 'strategist-revision' : 'strategist',
       tags: ['strategist', isRevision ? 'revision' : 'initial'],
       ...traceOptions(threadId, {
@@ -38,7 +38,7 @@ export async function strategist(
         is_revision: isRevision,
         ...(prompt.langfusePrompt ? { langfusePrompt: prompt.langfusePrompt } : {}),
       }),
-    },
+    }),
   );
 
   if (!result.structuredResponse)

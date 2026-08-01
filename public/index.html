@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lumen — Content Pipeline</title>
+<style>
+  :root { --accent: #4f46e5; --ok: #16a34a; --warn: #d97706; --muted: #6b7280; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; margin: 0 auto; max-width: 880px; padding: 24px; color: #111827; }
+  h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; margin-top: 2rem; }
+  form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  label { display: flex; flex-direction: column; font-size: 0.85rem; color: var(--muted); gap: 4px; }
+  input, select { padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 1rem; }
+  button { padding: 10px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font-size: 1rem; cursor: pointer; }
+  button.secondary { background: #e5e7eb; color: #111827; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .pipeline { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+  .step { padding: 6px 12px; border-radius: 999px; background: #f3f4f6; color: var(--muted); font-size: 0.85rem; }
+  .step.active { background: var(--accent); color: #fff; }
+  .step.done { background: #dcfce7; color: var(--ok); }
+  .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .scores span { margin-right: 12px; font-size: 0.85rem; }
+  textarea { width: 100%; min-height: 60px; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; }
+  #result-content { background: #f9fafb; padding: 16px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; }
+  .hidden { display: none; }
+  .badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; }
+  .badge.approved { background: #dcfce7; color: var(--ok); }
+  .badge.unapproved { background: #fef3c7; color: var(--warn); }
+</style>
+</head>
+<body>
+<h1>Lumen — AI Content Pipeline</h1>
+
+<form id="brief-form">
+  <label>Topic <input name="topic" required placeholder="How an AI assistant saves 10 hours a week" /></label>
+  <label>Channel
+    <select name="channel">
+      <option>blog</option><option>linkedin</option><option>twitter</option>
+      <option>instagram</option><option>threads</option>
+    </select>
+  </label>
+  <label>Tone <input name="tone" required value="professional" /></label>
+  <label>Audience <input name="target_audience" required value="SMB owners" /></label>
+  <label>Word count <input name="word_count" type="number" required value="800" /></label>
+  <label style="justify-content:end"><button type="submit" id="start-btn">Generate</button></label>
+</form>
+
+<div class="pipeline" id="pipeline"></div>
+
+<div class="card hidden" id="plan-card">
+  <h2>Content plan — approve?</h2>
+  <div id="plan-body"></div>
+  <textarea id="feedback" placeholder="Feedback for revision (optional unless revising)"></textarea>
+  <p>
+    <button id="approve-btn" type="button">Approve</button>
+    <button id="revise-btn" class="secondary" type="button">Request changes</button>
+  </p>
+</div>
+
+<div class="card hidden" id="result-card">
+  <h2>Result <span id="result-badge" class="badge"></span></h2>
+  <p id="result-meta" style="color:var(--muted)"></p>
+  <div id="result-content"></div>
+  <p><button id="publish-btn" class="hidden" type="button">Publish to Notion</button> <a id="notion-link" target="_blank" aria-label="Open in Notion"></a></p>
+</div>
+
+<h2>Drafts library</h2>
+<table id="drafts-table">
+  <thead><tr><th>Topic</th><th>Channel</th><th>Verdict</th><th>Words</th><th>Cost</th><th>Created</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<script>
+const NODES = ['strategist', 'hitl', 'writer', 'editor', 'finalizer', 'publisher'];
+let threadId = null;
+let eventSource = null;
+let lastSeq = -1;
+
+const $ = (id) => document.getElementById(id);
+
+function renderPipeline(activeNode, doneNodes) {
+  $('pipeline').innerHTML = NODES.map((n) => {
+    const cls = doneNodes.has(n) ? 'done' : n === activeNode ? 'active' : '';
+    return `<span class="step ${cls}">${n}</span>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function mdToHtml(md) {
+  const esc = escapeHtml(md);
+  return esc
+    .replace(/^### (.*)$/gm, '<h4>$1</h4>')
+    .replace(/^## (.*)$/gm, '<h3>$1</h3>')
+    .replace(/^# (.*)$/gm, '<h2>$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- (.*)$/gm, '&bull; $1');
+}
+
+async function loadDrafts() {
+  const drafts = await (await fetch('/drafts')).json();
+  $('drafts-table').querySelector('tbody').innerHTML = drafts.map((d) => `
+    <tr>
+      <td>${escapeHtml(d.topic)}</td><td>${d.channel}</td>
+      <td><span class="badge ${d.verdict === 'APPROVED' ? 'approved' : 'unapproved'}">${d.verdict ?? '—'}</span></td>
+      <td>${d.word_count}</td>
+      <td>${d.cost_usd != null ? `$${d.cost_usd.toFixed(4)}` : '—'}</td>
+      <td>${escapeHtml(d.created_at)}</td>
+    </tr>`).join('');
+}
+
+const doneNodes = new Set();
+
+function handleEvent(e) {
+  const { node, data, seq } = JSON.parse(e.data);
+  if (seq <= lastSeq) return;
+  lastSeq = seq;
+  if (NODES.includes(node)) { doneNodes.add(node); renderPipeline(null, doneNodes); }
+
+  if (node === 'hitl' && data.awaiting) {
+    const plan = data.payload?.plan;
+    if (plan) {
+      $('plan-body').innerHTML =
+        '<ol>' + plan.outline.map((i) => `<li>${escapeHtml(i)}</li>`).join('') + '</ol>' +
+        `<p><strong>Keywords:</strong> ${escapeHtml(plan.keywords.join(', '))}</p>` +
+        `<p><strong>Tone:</strong> ${escapeHtml(plan.tone)} — <strong>Audience:</strong> ${escapeHtml(plan.target_audience)}</p>`;
+    }
+    $('plan-card').classList.remove('hidden');
+  }
+  if (node === 'editor' && data.editFeedback) {
+    const fb = data.editFeedback;
+    doneNodes.delete('editor');
+    renderPipeline('editor', doneNodes);
+    $('result-meta').textContent =
+      `verdict: ${fb.verdict} · tone ${fb.tone_score} · accuracy ${fb.accuracy_score} · structure ${fb.structure_score}`;
+  }
+  if (node === 'done') {
+    eventSource?.close();
+    $('start-btn').disabled = false;
+    showResult(data);
+  }
+  if (node === 'error') {
+    eventSource?.close();
+    $('start-btn').disabled = false;
+    alert(`Run failed: ${data.message}`);
+  }
+}
+
+async function showResult(doneData) {
+  const draft = await (await fetch(`/drafts/${threadId}`)).json();
+  $('result-card').classList.remove('hidden');
+  $('result-badge').textContent = draft.verdict ?? '—';
+  $('result-badge').className = `badge ${draft.verdict === 'APPROVED' ? 'approved' : 'unapproved'}`;
+  $('result-meta').textContent =
+    `${draft.word_count} words · $${(doneData.costUsd ?? 0).toFixed(4)} · ${doneData.tokens ?? 0} tokens`;
+  $('result-content').innerHTML = mdToHtml(draft.content);
+  $('publish-btn').classList.remove('hidden');
+  loadDrafts();
+}
+
+$('brief-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const form = new FormData(ev.target);
+  const brief = Object.fromEntries(form.entries());
+  brief.word_count = Number(brief.word_count);
+  $('start-btn').disabled = true;
+  doneNodes.clear();
+  $('plan-card').classList.add('hidden');
+  $('result-card').classList.add('hidden');
+  renderPipeline('strategist', doneNodes);
+  const res = await fetch('/runs', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(brief),
+  });
+  if (!res.ok) { alert('Invalid brief'); $('start-btn').disabled = false; return; }
+  threadId = (await res.json()).thread_id;
+  eventSource = new EventSource(`/runs/${threadId}/events`);
+  eventSource.onmessage = handleEvent;
+});
+
+async function resume(approved) {
+  const feedback = $('feedback').value.trim();
+  if (!approved && !feedback) { alert('Feedback is required to request changes'); return; }
+  $('plan-card').classList.add('hidden');
+  await fetch(`/runs/${threadId}/resume`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(approved ? { approved: true } : { approved: false, feedback }),
+  });
+  eventSource?.close();
+  eventSource = new EventSource(`/runs/${threadId}/events`);
+  eventSource.onmessage = handleEvent;
+}
+$('approve-btn').addEventListener('click', () => resume(true));
+$('revise-btn').addEventListener('click', () => resume(false));
+
+$('publish-btn').addEventListener('click', async () => {
+  $('publish-btn').disabled = true;
+  const res = await fetch(`/drafts/${threadId}/publish`, { method: 'POST' });
+  const body = await res.json();
+  if (res.ok) {
+    $('notion-link').href = body.url;
+    $('notion-link').textContent = 'Open in Notion';
+    $('publish-btn').classList.add('hidden');
+  } else {
+    alert(body.error);
+    $('publish-btn').disabled = false;
+  }
+  loadDrafts();
+});
+
+renderPipeline(null, doneNodes);
+loadDrafts();
+</script>
+</body>
+</html>

@@ -3,12 +3,14 @@ import { parseArgs } from 'node:util';
 import 'dotenv/config';
 import { Command } from '@langchain/langgraph';
 import { z } from 'zod';
+import { CostTracker } from './costTracker';
+import { setDraftCost } from './db';
 import { graph } from './graph';
 import { shutdownNotionMcp } from './mcp/notion';
 import { shutdown } from './observability';
 import { BriefSchema } from './schemas';
-import { resetSearchCount } from './tools/search';
 import { makeInitialState } from './state';
+import { resetSearchCount } from './tools/search';
 
 const ArgsSchema = z.object({
   topic: z.string().min(1),
@@ -70,7 +72,7 @@ function formatChunk(nodeName: string, value: unknown, verbose: boolean): string
   }
 
   if (nodeName === 'finalizer' && v.finalContent) {
-    return '  Content saved to ./output/';
+    return '  Draft saved to database';
   }
 
   if (nodeName === 'publisher') {
@@ -123,7 +125,7 @@ export async function main(): Promise<void> {
       'Invalid arguments:\n' +
         parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n'),
     );
-    console.error('\n' + USAGE);
+    console.error(`\n${USAGE}`);
     process.exit(1);
   }
 
@@ -142,10 +144,11 @@ export async function main(): Promise<void> {
   console.log(`Channel:   ${brief.channel} | Tone: ${brief.tone} | Words: ${brief.word_count}\n`);
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const config = { configurable: { thread_id: threadId } };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tracker = new CostTracker();
+  const config = { configurable: { thread_id: threadId }, callbacks: [tracker] };
+  // biome-ignore lint/suspicious/noExplicitAny: graph.stream accepts either partial state or a Command
   let currentInput: any = makeInitialState(brief);
-  resetSearchCount();
+  resetSearchCount(threadId);
 
   try {
     while (true) {
@@ -169,6 +172,11 @@ export async function main(): Promise<void> {
             console.log(`[${nodeName}]`);
           }
         }
+        if (tracker.overBudget()) {
+          throw new Error(
+            `Token budget exceeded: ${tracker.totalTokens()} tokens (cap MAX_RUN_TOKENS=${process.env.MAX_RUN_TOKENS})`,
+          );
+        }
       }
 
       if (!interrupted) break;
@@ -179,7 +187,10 @@ export async function main(): Promise<void> {
         console.log(prettyPlan(payload.plan as Parameters<typeof prettyPlan>[0]));
       }
 
-      const answer = (await rl.question('[a]pprove, [r]evise, [q]uit? ')).trim().toLowerCase();
+      let answer = '';
+      while (!['a', 'r', 'q'].includes(answer)) {
+        answer = (await rl.question('[a]pprove, [r]evise, [q]uit? ')).trim().toLowerCase();
+      }
 
       if (answer === 'q') {
         console.log(`\nAborted. Thread ID: ${threadId}`);
@@ -199,13 +210,19 @@ export async function main(): Promise<void> {
     const finalContent = finalState.values.finalContent as string | null;
     const notionUrl = finalState.values.notionUrl as string | null;
 
+    setDraftCost(threadId, tracker.costUsd());
+
     if (finalContent) {
-      console.log('\n✓ Done! Content saved to ./output/');
+      console.log(`\n✓ Done! Draft saved (id: ${threadId})`);
       if (notionUrl) console.log(`✓ Published to Notion: ${notionUrl}`);
       console.log(`\nFinal preview:\n${finalContent.slice(0, 400)}...`);
     } else {
-      console.log('\nPipeline completed — check ./output/ for the saved file.');
+      console.log('\nPipeline completed — check the drafts database for the saved row.');
     }
+
+    console.log(
+      `\nTokens: ${tracker.inputTokens} in / ${tracker.outputTokens} out — est. cost $${tracker.costUsd().toFixed(4)}`,
+    );
   } catch (err) {
     console.error(`\nError: ${err instanceof Error ? err.message : String(err)}`);
     console.error(`Thread ID for debugging: ${threadId}`);

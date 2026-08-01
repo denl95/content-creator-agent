@@ -159,14 +159,17 @@ export async function reindex(): Promise<void> {
   await storePromise;
 }
 
+export async function lookupBrandStyle(query: string): Promise<string> {
+  const store = await getStore();
+  const results = await store.similaritySearch(query, 4);
+  if (results.length === 0) return 'No relevant brand style documents found.';
+  return results.map((doc) => doc.pageContent).join('\n---\n');
+}
+
 export const brandStyleRetriever = tool(
   async ({ query }) => {
     console.log(`[brand_style_lookup] "${query}"`);
-    const store = await getStore();
-    const results = await store.similaritySearch(query, 4);
-    if (results.length === 0) return 'No relevant brand style documents found.';
-    console.log(`[brand_style_lookup] ${results.length} chunks returned`);
-    return results.map((doc) => doc.pageContent).join('\n---\n');
+    return lookupBrandStyle(query);
   },
   {
     name: 'brand_style_lookup',

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const BriefSchema = z.object({
-  topic: z.string().describe('The main subject or title for the content piece'),
+  topic: z.string().min(1).describe('The main subject or title for the content piece'),
   target_audience: z.string().describe("Who the content is written for, e.g. 'SMB owners'"),
   channel: z
     .enum(['blog', 'linkedin', 'twitter', 'instagram', 'threads'])

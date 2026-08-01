@@ -1,7 +1,12 @@
+import type { RunnableConfig } from '@langchain/core/runnables';
+import { setDraftNotionUrl } from '../db';
 import { publishDraft } from '../mcp/notion';
 import type { GraphStateType } from '../state';
 
-export async function publisher(state: GraphStateType): Promise<Partial<GraphStateType>> {
+export async function publisher(
+  state: GraphStateType,
+  config?: RunnableConfig,
+): Promise<Partial<GraphStateType>> {
   if (process.env.SKIP_PUBLISH === 'true') {
     console.log('[publisher] SKIP_PUBLISH=true — skipping Notion publish');
     return {};
@@ -35,6 +40,8 @@ export async function publisher(state: GraphStateType): Promise<Partial<GraphSta
       status,
     });
     console.log(`[publisher] Published: ${page.url}`);
+    const threadId = config?.configurable?.thread_id as string | undefined;
+    if (threadId) setDraftNotionUrl(threadId, page.url);
     return { notionUrl: page.url };
   } catch (err) {
     console.error(
