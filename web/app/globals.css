@@ -1,0 +1,334 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ============================================================
+   EONYX Design System
+   Imported from the EONYX Design System project on claude.ai/design
+   (tokens/colors.css, typography.css, effects.css, spacing.css,
+   fonts.css, base.css). Dark-first: the brand lives on near-black
+   indigo. Angular, editorial, flat — the brand book explicitly
+   rejects glow and gloss, so structure comes from hairlines and
+   solid colour fields, not shadows.
+
+   shadcn's semantic variables are re-pointed at EONYX tokens below,
+   so every existing component inherits the brand without edits.
+   ============================================================ */
+
+:root {
+  /* ---- Brand core ---- */
+  --eonyx-indigo: #201848;
+  --eonyx-cyan:   #08C0E8;
+  --eonyx-red:    #E80828;
+  --eonyx-black:  #0B0B14;
+  --eonyx-white:  #FFFFFF;
+
+  /* ---- Indigo scale ---- */
+  --indigo-950: #0C0922;
+  --indigo-900: #14102E;
+  --indigo-800: #1A1438;
+  --indigo-700: #201848;
+  --indigo-600: #2C2160;
+  --indigo-500: #3A2C7E;
+  --indigo-400: #5544A8;
+
+  /* ---- Cyan scale ---- */
+  --cyan-200: #A8ECFA;
+  --cyan-300: #6FDCF4;
+  --cyan-400: #36CCEE;
+  --cyan-500: #08C0E8;
+  --cyan-600: #06A0C2;
+  --cyan-700: #057E99;
+  --cyan-800: #064C5C;
+
+  /* ---- Red scale ---- */
+  --red-300: #FF7186;
+  --red-400: #FF3B57;
+  --red-500: #E80828;
+  --red-600: #C20722;
+  --red-700: #8F0519;
+
+  /* ---- Neutral ramp (indigo-tinted) ---- */
+  --neutral-0:   #FFFFFF;
+  --neutral-50:  #F4F5F8;
+  --neutral-100: #E7E8EF;
+  --neutral-200: #CBCDD9;
+  --neutral-300: #A3A6B8;
+  --neutral-400: #76798F;
+  --neutral-500: #4F5268;
+  --neutral-600: #363A4D;
+  --neutral-700: #232636;
+  --neutral-800: #161826;
+  --neutral-900: #0E0F1A;
+  --neutral-950: #0B0B14;
+
+  /* ---- Semantic surfaces (dark-first) ---- */
+  --bg-deep:         #07070D;
+  --bg:              #0B0B14;
+  --surface:         #11121E;
+  --surface-raised:  #181A28;
+  --surface-overlay: #1F2233;
+  --surface-inset:   #0C0D17;
+
+  /* ---- Borders ---- */
+  --border-faint:  rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.20);
+  --hairline:      rgba(255,255,255,0.12);
+
+  /* ---- Text ---- */
+  --text-primary:   #FFFFFF;
+  --text-secondary: rgba(255,255,255,0.66);
+  --text-muted:     rgba(255,255,255,0.42);
+  --text-faint:     rgba(255,255,255,0.28);
+  --text-inverse:   #0B0B14;
+  --text-accent:    var(--cyan-400);
+
+  /* ---- Interactive ---- */
+  --accent-hover:    var(--cyan-400);
+  --accent-press:    var(--cyan-600);
+  --accent-contrast: #042029;
+  --accent-glow:     rgba(8,192,232,0.40);
+  /* Charts and the active pipeline step reference --brand directly in SVG
+     attributes; an undefined var makes SVG fall back to black, which is
+     invisible on the dark canvas.
+     NOTE: EONYX also names a semantic --accent (cyan), but shadcn uses
+     --accent for hover surfaces and its components depend on that meaning,
+     so the cyan lives on --brand here and --accent stays shadcn's. */
+  --brand:           var(--cyan-500);
+  --brand-soft:      var(--indigo-800);
+  --danger-hover:    var(--red-400);
+  --danger-contrast: #FFFFFF;
+  --success:         #2BD49B;
+  --warning:         #F5B544;
+  --focus-ring:      var(--cyan-500);
+
+  /* ---- Typography ---- */
+  --tracking-tighter: -0.03em;
+  --tracking-tight:   -0.015em;
+  --tracking-wide:    0.06em;
+  --tracking-tech:    0.16em;
+  --tracking-mega:    0.28em;
+
+  /* ---- Spacing (4px grid) ---- */
+  --control-h-sm: 32px;
+  --control-h-md: 42px;
+  --control-h-lg: 52px;
+
+  /* ---- Effects: sharp by default, pills for status only ---- */
+  --radius: 6px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.40);
+  --shadow-md: 0 6px 20px rgba(0,0,0,0.45);
+  --shadow-lg: 0 24px 60px rgba(0,0,0,0.55);
+
+  /* ============================================================
+     shadcn semantic tokens → EONYX
+     ============================================================ */
+  --background:            var(--bg);
+  --foreground:            var(--text-primary);
+  --card:                  var(--surface);
+  --card-foreground:       var(--text-primary);
+  --popover:               var(--surface-raised);
+  --popover-foreground:    var(--text-primary);
+  --primary:               var(--cyan-500);
+  --primary-foreground:    var(--accent-contrast);
+  --secondary:             var(--surface-raised);
+  --secondary-foreground:  var(--text-primary);
+  --muted:                 var(--surface-raised);
+  --muted-foreground:      var(--text-muted);
+  --accent:                var(--surface-overlay);
+  --accent-foreground:     var(--text-primary);
+  --destructive:           var(--red-500);
+  --destructive-foreground:var(--danger-contrast);
+  --border:                rgba(255,255,255,0.10);
+  --input:                 rgba(255,255,255,0.14);
+  --ring:                  var(--cyan-500);
+
+  /* Charts: brand-led, no neon bloom */
+  --chart-1: var(--cyan-500);
+  --chart-2: var(--indigo-400);
+  --chart-3: var(--red-500);
+  --chart-4: var(--cyan-700);
+  --chart-5: var(--neutral-400);
+
+  --sidebar:                     var(--surface);
+  --sidebar-foreground:          var(--text-primary);
+  --sidebar-primary:             var(--cyan-500);
+  --sidebar-primary-foreground:  var(--accent-contrast);
+  --sidebar-accent:              var(--surface-overlay);
+  --sidebar-accent-foreground:   var(--text-primary);
+  --sidebar-border:              rgba(255,255,255,0.10);
+  --sidebar-ring:                var(--cyan-500);
+}
+
+/* Brand state colours used by verdict badges and pipeline steps. */
+:root {
+  --state-approved:    #2BD49B;
+  --state-approved-bg: rgba(43,212,155,0.12);
+  --state-revision:    #F5B544;
+  --state-revision-bg: rgba(245,181,68,0.12);
+}
+
+@theme inline {
+  --color-brand: var(--eonyx-cyan);
+  --color-brand-foreground: var(--accent-contrast);
+  --color-state-approved: var(--state-approved);
+  --color-state-approved-bg: var(--state-approved-bg);
+  --color-state-revision: var(--state-revision);
+  --color-state-revision-bg: var(--state-revision-bg);
+  --font-sans: var(--font-montserrat);
+  --font-heading: var(--font-montserrat);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+/* ---- EONYX base layer ---- */
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--cyan-500); color: var(--accent-contrast); }
+
+:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--focus-ring); }
+
+/* ---- EONYX type primitives ---- */
+.eonyx-display {
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.08;
+  text-wrap: balance;
+}
+.eonyx-kicker {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tech);
+  color: var(--text-accent);
+}
+.eonyx-label {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tech);
+  color: var(--text-muted);
+}
+
+/* ---- Signature red corner slash (chevron fragment) ---- */
+.eonyx-slash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 34px;
+  height: 48px;
+  background: var(--eonyx-red);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  pointer-events: none;
+}
+
+/* ============================================================
+   Light register — EONYX's inverted surfaces (.eonyx-on-light in
+   the DS's base.css). The brand is dark-first, so dark stays the
+   default and light is an explicit opt-in via html.light.
+   ============================================================ */
+html.light {
+  --bg:              #FFFFFF;
+  --bg-deep:         #F4F5F8;
+  --surface:         #FFFFFF;
+  --surface-raised:  #F4F5F8;
+  --surface-overlay: #E7E8EF;
+  --surface-inset:   #F4F5F8;
+
+  --border-faint:  rgba(11,11,20,0.07);
+  --border-strong: rgba(11,11,20,0.22);
+  --hairline:      rgba(11,11,20,0.12);
+
+  --text-primary:   #0B0B14;
+  --text-secondary: #4F5268;
+  --text-muted:     #76798F;
+  --text-faint:     #A3A6B8;
+  --text-inverse:   #FFFFFF;
+  --text-accent:    var(--cyan-600);
+
+  /* shadcn semantics on the light ground */
+  --background:             var(--bg);
+  --foreground:             var(--text-primary);
+  --card:                   #FFFFFF;
+  --card-foreground:        var(--text-primary);
+  --popover:                #FFFFFF;
+  --popover-foreground:     var(--text-primary);
+  --primary:                var(--cyan-500);
+  --primary-foreground:     var(--accent-contrast);
+  --secondary:              var(--surface-raised);
+  --secondary-foreground:   var(--text-primary);
+  --muted:                  var(--surface-raised);
+  --muted-foreground:       var(--text-muted);
+  --accent:                 var(--surface-overlay);
+  --accent-foreground:      var(--text-primary);
+  --destructive:            var(--red-500);
+  --destructive-foreground: #FFFFFF;
+  --border:                 rgba(11,11,20,0.12);
+  --input:                  rgba(11,11,20,0.20);
+  --ring:                   var(--cyan-500);
+
+  --sidebar:            #FFFFFF;
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-accent:     var(--surface-overlay);
+  --sidebar-border:     rgba(11,11,20,0.12);
+
+  /* Status colours need more depth to hold contrast on white —
+     the dark-register greens/ambers wash out. */
+  --state-approved:    #0E7C57;
+  --state-approved-bg: rgba(43,212,155,0.16);
+  --state-revision:    #8A5A00;
+  --state-revision-bg: rgba(245,181,68,0.20);
+
+  --shadow-sm: 0 1px 2px rgba(11,11,20,0.08);
+  --shadow-md: 0 6px 20px rgba(11,11,20,0.10);
+}

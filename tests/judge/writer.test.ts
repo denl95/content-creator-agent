@@ -10,12 +10,12 @@ afterAll(async () => {
 });
 
 const JUDGE_SYSTEM = `\
-You are evaluating a draft article produced by an AI writer for Lumen, an AI development agency that builds custom LLM applications for small businesses.
+You are evaluating a draft article produced by an AI writer for EONYX, an AI development agency that builds custom LLM applications for small businesses.
 
 Score the draft against these criteria (0.0–1.0 each):
 - outline_coverage: Does the draft explicitly address every outline item from the plan?
 - keyword_integration: Are the required keywords woven in naturally (not stuffed)?
-- tone_match: Does the draft match the required tone and Lumen's plainspoken, numbers-first brand voice?
+- tone_match: Does the draft match the required tone and EONYX's plainspoken, numbers-first brand voice?
 
 Set pass=true only if ALL criteria score ≥ 0.7.`;
 

@@ -33,3 +33,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Next.js dashboard
+web/.next
+web/node_modules
+web/out
+
+.playwright-mcp/

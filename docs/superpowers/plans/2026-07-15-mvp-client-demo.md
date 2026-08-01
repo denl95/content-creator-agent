@@ -25,7 +25,7 @@
 
 ### Task 1: Fix the brand identity mismatch (F1)
 
-The agents' system prompts and the judge tests describe Lumen as *"a B2B SaaS product for SMB accounting automation"*, but `data/brand/brand.md` defines Lumen as an **AI development agency building custom LLM apps for small businesses**. Fix every occurrence.
+The agents' system prompts and the judge tests describe EONYX as *"a B2B SaaS product for SMB accounting automation"*, but `data/brand/brand.md` defines EONYX as an **AI development agency building custom LLM apps for small businesses**. Fix every occurrence.
 
 **Files:**
 - Modify: `src/prompts/strategist.ts:2`
@@ -36,21 +36,21 @@ The agents' system prompts and the judge tests describe Lumen as *"a B2B SaaS pr
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: no API changes — text only. Canonical identity line used everywhere: `Lumen, an AI development agency that builds custom LLM applications for small businesses`.
+- Produces: no API changes — text only. Canonical identity line used everywhere: `EONYX, an AI development agency that builds custom LLM applications for small businesses`.
 
 - [ ] **Step 1: Update the three system prompts**
 
-In each of `src/prompts/strategist.ts`, `src/prompts/writer.ts`, `src/prompts/editor.ts`, replace the opening line's `for Lumen, a B2B SaaS product for SMB accounting automation.` with:
+In each of `src/prompts/strategist.ts`, `src/prompts/writer.ts`, `src/prompts/editor.ts`, replace the opening line's `for EONYX, a B2B SaaS product for SMB accounting automation.` with:
 
 ```
-for Lumen, an AI development agency that builds custom LLM applications for small businesses.
+for EONYX, an AI development agency that builds custom LLM applications for small businesses.
 ```
 
 (Keep the role prefix: "senior content strategist" / "expert content writer" / "rigorous content editor".)
 
 - [ ] **Step 2: Update the judge-test system prompts**
 
-Same replacement in the `JUDGE_SYSTEM` strings of `tests/judge/e2e.test.ts`, `tests/judge/writer.test.ts`, `tests/judge/strategist.test.ts` — replace `Lumen, a B2B SaaS accounting product` with `Lumen, an AI development agency that builds custom LLM applications for small businesses`.
+Same replacement in the `JUDGE_SYSTEM` strings of `tests/judge/e2e.test.ts`, `tests/judge/writer.test.ts`, `tests/judge/strategist.test.ts` — replace `EONYX, a B2B SaaS accounting product` with `EONYX, an AI development agency that builds custom LLM applications for small businesses`.
 
 - [ ] **Step 3: Re-theme accounting fixtures**
 
@@ -1525,7 +1525,7 @@ Single static page served by the Hono server. No build step, no framework.
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Lumen — Content Pipeline</title>
+<title>EONYX — Content Pipeline</title>
 <style>
   :root { --accent: #4f46e5; --ok: #16a34a; --warn: #d97706; --muted: #6b7280; }
   * { box-sizing: border-box; }
@@ -1554,7 +1554,7 @@ Single static page served by the Hono server. No build step, no framework.
 </style>
 </head>
 <body>
-<h1>Lumen — AI Content Pipeline</h1>
+<h1>EONYX — AI Content Pipeline</h1>
 
 <form id="brief-form">
   <label>Topic <input name="topic" required placeholder="How an AI assistant saves 10 hours a week" /></label>

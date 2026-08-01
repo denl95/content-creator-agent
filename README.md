@@ -95,7 +95,7 @@ The collection (`brand` by default) is created and indexed automatically on firs
 The Strategist queries a vector store built from your brand assets. There are two sources:
 
 - **Notion (recommended)** — set `NOTION_TOKEN` and `NOTION_BRAND_PAGE_ID`. Create an integration at [notion.so/profile/integrations](https://www.notion.so/profile/integrations), share the parent brand page with it, and the agent will fetch all child pages via the [Notion MCP server](https://github.com/makenotion/notion-mcp-server) when the Chroma collection needs to be built or explicitly refreshed.
-- **Local files (fallback)** — if Notion is unset or unreachable, the agent reads `data/brand/*.md` from disk. The repo ships with a sample corpus describing **Lumen**, a fictional AI development agency that builds custom LLM apps for small businesses. All brand content and example posts are written in Ukrainian.
+- **Local files (fallback)** — if Notion is unset or unreachable, the agent reads `data/brand/*.md` from disk. The repo ships with a sample corpus describing **EONYX**, a fictional AI development agency that builds custom LLM apps for small businesses. All brand content and example posts are written in Ukrainian.
 
 ![Brand page in Notion](screenshots/notion-2.png)
 
@@ -183,15 +183,45 @@ bun run studio
 
 Opens the graph in Studio at `http://localhost:8123`. Submit a brief as the initial state to step through nodes visually.
 
-### Web UI & API
+### Dashboard & API
 
 ```bash
-bun run serve
+bun run dev:all
 ```
 
-Opens the demo at `http://localhost:3000` — submit a brief, watch the pipeline live, approve or revise the plan, and browse the drafts library. For demos without Notion, no extra setup is needed: drafts persist to SQLite (`data/app.db` by default).
+Starts the Hono API on `:3000` and the Next.js dashboard on `http://localhost:3001`. Four screens:
 
-API endpoints: `POST /runs`, `GET /runs/:id`, `POST /runs/:id/resume`, `GET /runs/:id/events` (SSE), `GET /drafts`, `GET /drafts/:id`, `POST /drafts/:id/publish`.
+| Route | What it does |
+|---|---|
+| `/` | Stat tiles, spend-over-time and drafts-per-channel charts, recent drafts |
+| `/run` | Submit a brief, watch the pipeline live, approve or revise the plan |
+| `/drafts` | Every draft ever generated, with verdict, word count and cost |
+| `/drafts/[id]` | Full content, editor scores and issues, publish to Notion |
+
+The dashboard is frontend-only: it reaches the API exclusively through a `/api/*` rewrite, so the Hono server keeps owning the pipeline, SQLite and SSE.
+
+**Visual identity.** The dashboard wears the [EONYX Design System](https://claude.ai/design), imported from Claude Design rather than reimplemented — its `tokens/*.css` were pulled with the `DesignSync` tool's read methods (`get_project` → `list_files` → `get_file`) and mapped onto shadcn's semantic variables in `web/app/globals.css`, and the wordmark is ported verbatim from the system's own `Logo` component. Dark-first near-black indigo with an electric-cyan accent, Montserrat + JetBrains Mono, angular flat surfaces. A toggle in the nav switches to the light register; the choice persists and applies before first paint.
+
+**Auth.** Setting `DEMO_PASSWORD` puts a shared-password gate in front of everything (needed for any public deployment — an unguarded URL spends your OpenAI credits). Leaving it unset disables auth entirely, which is the local-dev default.
+
+**No Chroma needed.** `VECTOR_STORE=memory` builds the brand corpus into an in-process vector store at startup instead of talking to Chroma — that's what the deployed container uses.
+
+API endpoints (reachable directly on `:3000`, or via `/api/*` from the dashboard): `POST /runs`, `GET /runs/:id`, `POST /runs/:id/resume`, `GET /runs/:id/events` (SSE), `GET /drafts`, `GET /drafts/:id`, `POST /drafts/:id/publish`, `GET /stats`, `POST /auth/login`, `GET /auth/check`.
+
+### Deploying
+
+The app ships as a single container running both processes (`Dockerfile` + `docker-entrypoint.sh`), targeted at Fly.io:
+
+```bash
+fly launch --no-deploy --copy-config
+fly volumes create demo_data --size 1
+fly secrets set OPENAI_API_KEY=... TAVILY_API_KEY=... DEMO_PASSWORD=...
+fly deploy && fly scale count 1
+```
+
+Two settings in `fly.toml` are load-bearing rather than cosmetic: `auto_stop_machines = false` and a single machine. Run state lives in an in-memory `Map` and a run pauses mid-flight waiting for human approval, so a stopped or duplicated machine loses in-flight runs. Verify by observation (`fly status` after an idle period), not by reading the config back.
+
+Leave `NOTION_BRAND_PAGE_ID` unset in production — the brand corpus is baked into the image, and fetching it over the Notion MCP server spawns `npx` at startup.
 
 ## HITL behavior
 
@@ -315,16 +345,29 @@ src/
   nodes/            — strategist, writer, editor, hitl, finalizer
   prompts/          — system prompts and message builders
   routing/          — editorRoute (REVISION_NEEDED → writer, else → finalizer)
-  tools/            — web_search (with retry), brand_style_lookup (Chroma RAG), save_content
+  tools/            — web_search (with retry), brand_style_lookup, memoryVectorStore
   mcp/              — Notion MCP client + brand fetch / publish helpers
+  auth.ts           — shared-password gate (HMAC session token)
+  db.ts             — SQLite drafts store + /stats aggregation
+  server.ts         — Hono API (no static serving; the dashboard is separate)
+  runManager.ts     — drives the graph for HTTP, SSE pub-sub, TTL sweep
+web/                — Next.js dashboard (own package.json, tsconfig, eslint)
+  app/(dashboard)/  — /, /run, /drafts, /drafts/[id]
+  app/globals.css   — EONYX tokens (dark :root + html.light) → shadcn vars
+  components/       — logo, nav, theme-toggle, charts, badges; ui/ is shadcn
+  app/login/        — password gate, outside the dashboard shell
+  proxy.ts          — Next 16 route protection (was middleware.ts pre-16)
 scripts/
   reindex.ts        — force-rebuild the Chroma collection from the brand corpus
 data/
-  brand/            — fallback brand corpus (used if Notion is unset)
+  brand/            — brand corpus (baked into the container image)
 tests/
+  unit/             — fast, free, deterministic; what CI runs
   judge/            — LLM-as-a-Judge test files + shared schema
   fixtures/         — briefs.ts, plans.ts, bad-draft.md
 output/             — approved/unapproved articles as Markdown (when WRITE_OUTPUT_FILES=true)
+Dockerfile          — single container running both the API and the dashboard
+fly.toml            — Fly.io config (auto-stop disabled, single machine, volume)
 ```
 
 ## Reliability

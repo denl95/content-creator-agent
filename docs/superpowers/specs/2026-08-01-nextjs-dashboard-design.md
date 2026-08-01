@@ -83,7 +83,7 @@ Three contained changes to the existing Bun/Hono codebase:
 
 **Shared-password gate** — enforced in two places, because two servers are involved:
 
-- *Next.js middleware* protects pages. Unauthenticated requests redirect to `/login`, which POSTs the password and sets an HTTP-only, `Secure`, `SameSite=Lax` cookie.
+- *Next.js `proxy.ts`* protects pages (Next 16 renamed the `middleware` convention to `proxy`; see the implementation plan). Unauthenticated requests redirect to `/login`, which POSTs the password and sets an HTTP-only, `Secure`, `SameSite=Lax` cookie.
 - *Hono middleware* independently protects `/runs`, `/drafts`, and `/stats`, validating the same cookie.
 
 Next is the only publicly exposed port in the container, so the Hono check is defense-in-depth — but it also means the API stays protected in local development, where Hono is directly reachable. The comparison uses a constant-time check against a `DEMO_PASSWORD` env var. When `DEMO_PASSWORD` is unset (local dev), both middlewares are no-ops, so existing workflows are unaffected.

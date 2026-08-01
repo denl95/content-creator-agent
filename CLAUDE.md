@@ -5,13 +5,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ### Setup
-- `bun install` — install dependencies
-- Chroma must be running for the RAG brand-style lookup: `docker run -d -p 8000:8000 --name chroma chromadb/chroma` (or `docker start chroma` if the container already exists)
+- `bun install` — install dependencies (root); `cd web && bun install` for the dashboard
+- Chroma must be running for the default RAG path: `docker run -d -p 8000:8000 --name chroma chromadb/chroma` (or `docker start chroma`). Alternatively set `VECTOR_STORE=memory` and skip Chroma entirely.
 
 ### Development
-- `bun run dev` — CLI in watch mode
+- `bun run dev` — CLI in watch mode. **Requires all five flags**; running it bare exits 1 with a usage error, which is expected, not a bug.
 - `bun run start -- --topic "..." --channel blog --tone professional --audience "SMB owners" --word-count 1200` — CLI, one-shot run
-- `bun run serve` — Hono HTTP server + static web UI at `http://localhost:3000` (`src/server.ts`)
+- `bun run serve` — Hono API only at `http://localhost:3000` (`src/server.ts`); it no longer serves any UI
+- `bun run web` — Next.js dashboard at `http://localhost:3001`
+- `bun run dev:all` — both of the above together (what you usually want)
 - `bun run studio` — LangGraph Studio at `http://localhost:8123`
 
 ### Quality gates
@@ -46,7 +48,7 @@ State shape (`src/state.ts`) is the contract every node reads/writes: `brief`, `
 ### Two independent drivers of the same graph
 `src/cli.ts` drives the graph interactively (blocking `readline` prompt for HITL) for one run at a time. `src/runManager.ts` drives it for the HTTP server (`src/server.ts`): fire-and-forget `startRun()`/`resumeRun()`, an in-memory `Map<threadId, RunRecord>`, and an `emit()`/`subscribe()` pub-sub so an SSE endpoint can stream progress. Both paths attach a `CostTracker` to `config.callbacks` and both reset the per-thread search-rate-limit counter (`src/tools/search.ts`) when a run finishes — if you change one path's behavior (budget cap, cost write-back, search cleanup), check whether the other needs the matching change.
 
-SSE events (`RunEvent = {node, data, ts, seq}`) are deduped client-side (`public/index.html`) using `seq`, a monotonic per-run counter — **not** `ts`. `Date.now()` has millisecond resolution and two `emit()` calls with no async gap between them (e.g. the `strategist` chunk immediately followed by the `hitl` interrupt event) can share a timestamp; deduping on `ts` can silently drop one of them. There's no shared type between the Hono server and the static HTML client, so a change to `RunEvent`'s shape needs `handleEvent` in `public/index.html` updated by hand.
+SSE events (`RunEvent = {node, data, ts, seq}`) are deduped client-side (`web/app/(dashboard)/run/page.tsx`) using `seq`, a monotonic per-run counter — **not** `ts`. `Date.now()` has millisecond resolution and two `emit()` calls with no async gap between them can share a timestamp; deduping on `ts` can silently drop one of them. This is not hypothetical: a live run logged the `strategist` and `hitl` events 5 ms apart. Dedup matters because the client reopens its `EventSource` after every resume, and the server replays the full event history on each connection — without it the just-approved plan card reappears. There's no shared type across the Hono/Next boundary, so a change to `RunEvent`'s shape needs `web/lib/types.ts` updated by hand.
 
 ### Prompts have two sources, resolved per call
 `src/prompts/managed.ts`'s `compileManagedPrompt()` tries Langfuse Prompt Management first (label from `LANGFUSE_PROMPT_LABEL`, default `"production"`), falling back to the hardcoded `MANAGED_PROMPTS[key].fallback` templates in the same file if Langfuse is unset or unreachable. `src/prompts/{strategist,writer,editor}.ts` only export the `*_SYSTEM` string constants now (the old template-building functions were dead code, removed) — those constants feed `managed.ts`'s fallback templates. Editing prompt behavior means editing the fallback text in `managed.ts`/the `*_SYSTEM` constants, then running `bun run upload-prompts` if Langfuse is configured — otherwise the deployed Langfuse-managed prompt silently wins over a local edit.
@@ -57,8 +59,55 @@ SSE events (`RunEvent = {node, data, ts, seq}`) are deduped client-side (`public
 ### Drafts persist to SQLite, not files, by default
 `src/db.ts` (`bun:sqlite`) is the source of truth — `finalizer.ts` always inserts a row keyed by `thread_id`, so re-running the same topic never collides. Writing to `./output/*.md` is opt-in via `WRITE_OUTPUT_FILES=true`. Notion publishing is optional and best-effort: the `publisher` graph node auto-publishes only if `NOTION_TOKEN` + `NOTION_DRAFTS_DATABASE_ID` are set (and `SKIP_PUBLISH` isn't `true`); a failure there never loses the draft since the DB row already exists. `POST /drafts/:id/publish` lets the web UI publish on demand instead of relying on the automatic graph step.
 
-### Reference docs for this MVP work
-`docs/superpowers/specs/2026-07-15-mvp-client-demo-design.md` and `docs/superpowers/plans/2026-07-15-mvp-client-demo.md` capture the design rationale behind several non-obvious decisions (e.g. why the checkpointer is still `MemorySaver` and not a SQLite-backed one, why Notion became optional, the run-cleanup TTL policy) — check there before re-litigating something that looks like it should obviously be different.
+### Reference docs
+`docs/superpowers/specs/` and `docs/superpowers/plans/` capture the design rationale behind several non-obvious decisions — check there before re-litigating something that looks like it should obviously be different:
+
+- `2026-07-15-mvp-client-demo-*` — why the checkpointer is still `MemorySaver`, why Notion became optional, the run-cleanup TTL policy
+- `2026-08-01-nextjs-dashboard-*` — why Next proxies rather than reading SQLite directly, why Fly.io over Railway (Railway's Hobby plan forbids commercial use), why single-instance is a hard constraint
 
 ### Runtime is Bun, not Node
 Per `.cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc`: use `bun`/`bun test`/`bun install`/`bunx`, never `node`/`npm`/`yarn`/`pnpm`/`vite`/`jest`. `bun:sqlite` instead of `better-sqlite3`. Biome (not ESLint/Prettier) enforces style — single quotes, 2-space indent, semicolons, organized imports; `bun run check` auto-fixes most of this. `suspicious/noExplicitAny` is downgraded to `warn` in `biome.json`; most other rules (e.g. `style/noNonNullAssertion`) are error-level under the recommended ruleset and do fail `bunx biome ci .` — silence a deliberate one with a `// biome-ignore lint/<rule>: <reason>` comment rather than restructuring working code around it.
+
+### The dashboard lives in `web/` and is frontend-only
+`web/` is a separate Next.js 16 app with its own `package.json`, `tsconfig.json` and ESLint config. It is **excluded from root Biome and root `tsc`** (`biome.json` ignores `web`, `tsconfig.json` excludes it) — run `cd web && bun run build` to typecheck it, not `bun run typecheck`.
+
+**Everything backend is namespaced under `/api/*`.** `web/next.config.ts` rewrites `/api/:path*` → `${API_ORIGIN}/:path*`. Do **not** add rewrites for bare `/drafts` or `/runs`: those are page routes, and a rewrite would shadow them so the drafts screens never render. Server Components call `API_ORIGIN` directly via `web/lib/api.ts` (forwarding the auth cookie); client components fetch `/api/...`.
+
+**Next 16 renamed `middleware.ts` to `proxy.ts`.** The file is `web/proxy.ts` and the exported function is `proxy`, not `middleware`. Its runtime is always `nodejs` (edge is unsupported), which is what lets it `fetch` the Hono server. The `matcher` is required, not optional — without it the proxy runs on `_next/static` too and blocks the login page's own CSS. `web/AGENTS.md` warns that this Next version differs from training data; the bundled docs in `web/node_modules/next/dist/docs/` are the source of truth.
+
+**Theming is class-based, not media-query-based.** shadcn's tokens switch on `.dark` and its components use `dark:` variants, so a `prefers-color-scheme` media query would recolour the brand variables while leaving shadcn's `--background` and every `dark:` utility untouched. A blocking inline script in `web/app/layout.tsx` puts `dark` or `light` on `<html>` before first paint, reading `localStorage.theme`; `components/theme-toggle.tsx` writes it. Dark is the default when nothing is stored — see the EONYX section below.
+
+Route groups: `web/app/(dashboard)/` carries the nav shell; `web/app/login/` sits outside it so the login screen renders bare.
+
+### Auth has one implementation, not two
+`src/auth.ts` owns everything (HMAC session token, constant-time compare). Hono guards `/runs*`, `/drafts*`, `/stats` and serves `POST /auth/login` + `GET /auth/check`. Next's `proxy.ts` **delegates to `/auth/check`** rather than re-deriving the HMAC — don't duplicate that logic into `web/`, or the two can drift. Unset `DEMO_PASSWORD` makes both sides a no-op, which is the local-dev default.
+
+### Vector store has two backends
+`VECTOR_STORE=chroma` (default, local dev) or `memory`. The `memory` path (`src/tools/memoryVectorStore.ts`) embeds the corpus at startup and cosine-ranks in an array — LangChain 1.x ships no in-memory vector store, and the `@langchain/community` alternatives need native modules that fight containerization. Both sit behind the same `lookupBrandStyle(query)` signature, so callers never change.
+
+**Do not set `NOTION_BRAND_PAGE_ID` in production.** `loadFromNotion()` spawns `npx -y @notionhq/notion-mcp-server`, which took minutes on a cold cache; with local brand files the same lookup takes ~1s. The corpus is baked into the container image, so production should use files and reserve Notion for publishing (`NOTION_DRAFTS_DATABASE_ID`).
+
+### Deployment is one container, and two Fly settings are load-bearing
+`Dockerfile` builds Next and the API into a single image on a `node:22-slim` base with Bun installed on top — Node is there because the Notion publisher shells out to `npx`. `docker-entrypoint.sh` runs both processes and **exits if either dies**, so the platform restarts rather than leaving a half-dead container answering HTTP.
+
+In `fly.toml`, `auto_stop_machines` must stay off and there must be exactly one machine (`fly scale count 1`). These are correctness requirements, not tuning: run state is an in-memory `Map` and a run pauses mid-flight for human approval, so a stopped machine loses in-flight runs and a second machine would let a client approve a plan on a process that never heard of their run. Verify by observation (`fly status` after idling), not by reading the config back.
+
+**Pushing to `main` deploys.** `.github/workflows/fly-deploy.yml` runs `flyctl deploy --remote-only` on every push to `main`/`master`, using the `FLY_API_TOKEN` repo secret. Two consequences worth knowing: it does **not** gate on `ci.yml`, so a red build still deploys; and because there is one machine bound to one volume, each deploy briefly takes the app down — don't push to `main` during a client demo.
+
+**Renaming the brand touches three places that don't rebuild themselves.** `src/prompts/*.ts` feed Langfuse-managed prompts, so a local edit is silently overridden until `bun run upload-prompts` runs. `data/brand/*.md` is the RAG corpus — content-hashed, so Chroma rebuilds on next use locally (`bun run reindex` forces it), and the in-process store rebuilds at container start. The judge tests in `tests/judge/` carry the brand name in their `JUDGE_SYSTEM` strings too.
+
+### The visual identity is EONYX, pulled from claude.ai/design
+`web/app/globals.css` carries the EONYX Design System tokens (project `86b4adf4-9f78-46e9-9d4d-3eae41694ead`, type `PROJECT_TYPE_DESIGN_SYSTEM`). They were imported with the `DesignSync` tool's **read** methods — `get_project` → `list_files` → `get_file` on `tokens/*.css` — not by hand. Re-read those files to refresh the tokens; don't invent brand values.
+
+The system is **dark-first** (`--bg: #0B0B14`), with brand indigo `#201848`, electric cyan `#08C0E8` and signal red `#E80828`. It is also **angular, editorial and flat**: the brand explicitly rejects glow/gloss, radii are 2–10px (`--radius: 6px`), and pills are reserved for tags and status (verdict badges only).
+
+**Both registers exist.** `:root` carries the dark values; `html.light` carries the light ones, ported from the DS's own `.eonyx-on-light` scope in `tokens/base.css`. Dark remains the default when nothing is stored, because the brand book puts the identity on near-black indigo. Two things differ beyond a straight inversion, and both are deliberate: the status colours are **darkened** in the light register (the dark-register green `#2BD49B` and amber `#F5B544` fail contrast on white), and shadows go from black-on-black to a soft indigo tint.
+
+The `Logo` (`web/components/logo.tsx`) is ported verbatim from the DS's `components/core/Logo.jsx` — inline SVG paths, no asset dependency. It defaults to `tone="currentColor"`, which is why the wordmark inverts with the theme for free; don't hard-code a tone in the nav.
+
+Two collisions to know about when touching tokens:
+
+- **`--brand` must stay defined.** `spend-chart.tsx` and `channel-chart.tsx` pass `var(--brand)` straight into SVG `fill`/`stroke` attributes. An undefined CSS variable makes SVG fall back to **black**, which is invisible on the dark canvas and passes every build and typecheck. This already happened once during the import.
+- **`--accent` means different things in the two systems.** EONYX names it the cyan interactive colour; shadcn uses it for hover surfaces and its components depend on that. The cyan lives on `--brand`; `--accent` stays shadcn's.
+
+Type treatment: Montserrat (display/UI) + JetBrains Mono (technical). The brand voice is wide-tracked uppercase mono for labels — `.eonyx-label` / `.eonyx-kicker` in `globals.css`, used on stat tiles, table headers, nav links and pipeline steps. `.eonyx-slash` is the persistent red corner chevron.
