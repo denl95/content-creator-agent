@@ -1,0 +1,15 @@
+node_modules
+web/node_modules
+web/.next
+.git
+# Exclude the local SQLite database (the container uses a mounted volume) but
+# keep the brand corpus, which is baked into the image and read at startup.
+data
+!data/brand
+output
+.env
+.superpowers
+docs
+screenshots
+tests
+tmp-data
