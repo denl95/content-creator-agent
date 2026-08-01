@@ -1,15 +1,20 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { JetBrains_Mono, Montserrat } from 'next/font/google';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+// EONYX brand faces: Montserrat (geometric display/UI) + JetBrains Mono
+// (primary technical face — labels, kickers, data). Both are exact per the
+// brand book, not substitutions.
+const montserrat = Montserrat({
+  variable: '--font-montserrat',
   subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '900'],
 });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const jetbrainsMono = JetBrains_Mono({
+  variable: '--font-jetbrains-mono',
   subsets: ['latin'],
+  weight: ['400', '500', '700'],
 });
 
 export const metadata: Metadata = {
@@ -17,26 +22,24 @@ export const metadata: Metadata = {
   description: 'Plan, write, edit and publish on-brand content with a human in the loop.',
 };
 
-// Runs before first paint so the theme never flashes. Kept inline (rather than
-// next-themes) because there is no toggle — the OS preference is the only input.
-const THEME_SCRIPT = `try{if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark')}catch(e){}`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
+    // EONYX is dark-first — the brand lives on near-black indigo, so there is
+    // no light mode and no theme toggle.
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning
+      className={`${montserrat.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <head>
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static string, must run before paint */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-      </head>
-      <body className="flex min-h-full flex-col bg-background text-foreground">{children}</body>
+      <body
+        className="flex min-h-full flex-col bg-background text-foreground"
+        style={{ fontFamily: 'var(--font-montserrat), system-ui, sans-serif' }}
+      >
+        {children}
+      </body>
     </html>
   );
 }

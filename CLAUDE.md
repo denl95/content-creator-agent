@@ -91,3 +91,15 @@ Route groups: `web/app/(dashboard)/` carries the nav shell; `web/app/login/` sit
 `Dockerfile` builds Next and the API into a single image on a `node:22-slim` base with Bun installed on top — Node is there because the Notion publisher shells out to `npx`. `docker-entrypoint.sh` runs both processes and **exits if either dies**, so the platform restarts rather than leaving a half-dead container answering HTTP.
 
 In `fly.toml`, `auto_stop_machines = false` and a single machine (`fly scale count 1`) are correctness requirements, not tuning: run state is an in-memory `Map` and a run pauses mid-flight for human approval, so a stopped machine loses in-flight runs and a second machine would let a client approve a plan on a process that never heard of their run. Verify by observation (`fly status` after idling), not by reading the config back.
+
+### The visual identity is EONYX, pulled from claude.ai/design
+`web/app/globals.css` carries the EONYX Design System tokens (project `86b4adf4-9f78-46e9-9d4d-3eae41694ead`, type `PROJECT_TYPE_DESIGN_SYSTEM`). They were imported with the `DesignSync` tool's **read** methods — `get_project` → `list_files` → `get_file` on `tokens/*.css` — not by hand. Re-read those files to refresh the tokens; don't invent brand values.
+
+The system is **dark-first** (`--bg: #0B0B14`), with brand indigo `#201848`, electric cyan `#08C0E8` and signal red `#E80828`. There is no light mode and no theme toggle — the brand book puts the identity on near-black indigo, so `app/layout.tsx` has no `prefers-color-scheme` script. It is also **angular, editorial and flat**: the brand explicitly rejects glow/gloss, radii are 2–10px (`--radius: 6px`), and pills are reserved for tags and status (verdict badges only).
+
+Two collisions to know about when touching tokens:
+
+- **`--brand` must stay defined.** `spend-chart.tsx` and `channel-chart.tsx` pass `var(--brand)` straight into SVG `fill`/`stroke` attributes. An undefined CSS variable makes SVG fall back to **black**, which is invisible on the dark canvas and passes every build and typecheck. This already happened once during the import.
+- **`--accent` means different things in the two systems.** EONYX names it the cyan interactive colour; shadcn uses it for hover surfaces and its components depend on that. The cyan lives on `--brand`; `--accent` stays shadcn's.
+
+Type treatment: Montserrat (display/UI) + JetBrains Mono (technical). The brand voice is wide-tracked uppercase mono for labels — `.eonyx-label` / `.eonyx-kicker` in `globals.css`, used on stat tiles, table headers, nav links and pipeline steps. `.eonyx-slash` is the persistent red corner chevron.

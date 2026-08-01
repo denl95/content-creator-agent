@@ -18,21 +18,21 @@ export default async function DraftsPage() {
           </Link>
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <div className="overflow-x-auto rounded-sm border border-border">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left">
+            <thead className="border-b border-border text-left">
               <tr>
-                <th className="p-3 font-medium">Topic</th>
-                <th className="p-3 font-medium">Channel</th>
-                <th className="p-3 font-medium">Verdict</th>
-                <th className="p-3 text-right font-medium">Words</th>
-                <th className="p-3 text-right font-medium">Cost</th>
-                <th className="p-3 font-medium">Created</th>
+                <th className="eonyx-label p-3 font-normal">Topic</th>
+                <th className="eonyx-label p-3 font-normal">Channel</th>
+                <th className="eonyx-label p-3 font-normal">Verdict</th>
+                <th className="eonyx-label p-3 text-right font-normal">Words</th>
+                <th className="eonyx-label p-3 text-right font-normal">Cost</th>
+                <th className="eonyx-label p-3 font-normal">Created</th>
               </tr>
             </thead>
             <tbody>
               {drafts.map((draft) => (
-                <tr key={draft.id} className="border-b last:border-0 hover:bg-muted/30">
+                <tr key={draft.id} className="border-b border-border/60 last:border-0 hover:bg-muted/40">
                   <td className="p-3">
                     <Link href={`/drafts/${draft.id}`} className="font-medium hover:underline">
                       {draft.topic}

@@ -6,14 +6,15 @@ export function PipelineProgress({ done, active }: { done: Set<string>; active: 
       {NODES.map((node) => {
         const state = done.has(node) ? 'done' : node === active ? 'active' : 'idle';
         return (
+          // EONYX: angular, not rounded — pipeline steps are structural, not status
           <span
             key={node}
-            className={`rounded-full px-3 py-1 text-sm transition-colors ${
+            className={`rounded-sm border px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors ${
               state === 'done'
-                ? 'bg-state-approved-bg text-state-approved'
+                ? 'border-state-approved/30 bg-state-approved-bg text-state-approved'
                 : state === 'active'
-                  ? 'bg-brand text-brand-foreground'
-                  : 'bg-muted text-muted-foreground'
+                  ? 'border-brand bg-brand text-brand-foreground'
+                  : 'border-border text-muted-foreground'
             }`}
           >
             {node}

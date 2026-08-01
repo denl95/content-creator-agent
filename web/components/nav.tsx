@@ -8,14 +8,21 @@ const LINKS = [
 
 export function Nav() {
   return (
-    <header className="border-b">
-      <nav className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
-        <Link href="/" className="font-semibold tracking-tight">
-          Lumen
+    // EONYX: the persistent red corner slash (a chevron fragment) is the
+    // brand's editorial device; structure comes from hairlines, not shadows.
+    <header className="relative border-b border-border">
+      <span className="eonyx-slash" aria-hidden="true" />
+      <nav className="mx-auto flex max-w-6xl items-center gap-8 px-6 py-4 pl-12">
+        <Link href="/" className="text-lg font-bold tracking-[-0.015em]">
+          LUMEN
         </Link>
-        <div className="flex gap-4 text-sm text-muted-foreground">
+        <div className="flex gap-6">
           {LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="transition-colors hover:text-foreground">
+            <Link
+              key={link.href}
+              href={link.href}
+              className="eonyx-label transition-colors hover:text-foreground"
+            >
               {link.label}
             </Link>
           ))}

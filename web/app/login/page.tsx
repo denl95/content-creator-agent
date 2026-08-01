@@ -28,22 +28,26 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Lumen</h1>
-        <p className="text-sm text-neutral-500">Enter the demo password to continue.</p>
+    <main className="relative flex min-h-screen items-center justify-center p-6">
+      <span className="eonyx-slash" aria-hidden="true" />
+      <form onSubmit={submit} className="w-full max-w-sm space-y-5">
+        <div className="space-y-2">
+          <p className="eonyx-kicker">AI Content Pipeline</p>
+          <h1 className="text-4xl font-bold tracking-[-0.015em]">LUMEN</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">Enter the demo password to continue.</p>
         <input
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="w-full rounded-md border px-3 py-2"
+          className="h-10.5 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
           placeholder="Password"
         />
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <button
           type="submit"
           disabled={pending || password.length === 0}
-          className="w-full rounded-md bg-black px-3 py-2 text-white disabled:opacity-50"
+          className="h-10.5 w-full rounded-sm bg-primary font-mono text-[11px] uppercase tracking-[0.16em] text-primary-foreground transition-colors hover:bg-(--accent-hover) disabled:opacity-40"
         >
           {pending ? 'Checking…' : 'Enter'}
         </button>
