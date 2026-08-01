@@ -1,8 +1,16 @@
 import 'dotenv/config';
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { serveStatic } from 'hono/bun';
+import { getCookie, setCookie } from 'hono/cookie';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
+import {
+  isAuthEnabled,
+  SESSION_COOKIE,
+  sessionToken,
+  verifyPassword,
+  verifySessionCookie,
+} from './auth';
 import { getDraft, getStats, listDrafts, setDraftNotionUrl } from './db';
 import { publishDraft } from './mcp/notion';
 import { getRun, resumeRun, startRun, subscribe, sweepStaleRuns } from './runManager';
@@ -14,6 +22,57 @@ const ResumeSchema = z.union([
 ]);
 
 export const app = new Hono();
+
+const LoginSchema = z.object({ password: z.string() });
+
+app.post('/auth/login', async (c) => {
+  if (!isAuthEnabled()) return c.json({ ok: true });
+  const body = await c.req.json().catch(() => null);
+  const parsed = LoginSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: 'password required' }, 400);
+  if (!verifyPassword(parsed.data.password)) return c.json({ error: 'invalid password' }, 401);
+  setCookie(c, SESSION_COOKIE, sessionToken(), {
+    httpOnly: true,
+    sameSite: 'Lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7,
+  });
+  return c.json({ ok: true });
+});
+
+app.get('/auth/check', (c) => {
+  if (!isAuthEnabled()) return c.json({ ok: true });
+  return verifySessionCookie(getCookie(c, SESSION_COOKIE))
+    ? c.json({ ok: true })
+    : c.json({ error: 'unauthorized' }, 401);
+});
+
+const requireAuth: MiddlewareHandler = async (c, next) => {
+  if (!isAuthEnabled()) return next();
+  if (!verifySessionCookie(getCookie(c, SESSION_COOKIE))) {
+    return c.json({ error: 'unauthorized' }, 401);
+  }
+  return next();
+};
+
+// Hono matches '/runs' and '/runs/*' separately — both must be registered.
+for (const route of ['/runs', '/runs/*', '/drafts', '/drafts/*', '/stats']) {
+  app.use(route, requireAuth);
+}
+
+if (process.env.ENABLE_SSE_DEBUG === 'true') {
+  // Diagnostic only: emits 5 events 500ms apart so a proxy can be tested for
+  // response buffering without spending money on a real pipeline run.
+  app.get('/debug/sse-ping', (c) =>
+    streamSSE(c, async (stream) => {
+      for (let i = 0; i < 5; i++) {
+        await stream.writeSSE({ data: JSON.stringify({ i, ts: Date.now() }) });
+        await stream.sleep(500);
+      }
+    }),
+  );
+}
 
 app.post('/runs', async (c) => {
   sweepStaleRuns();
