@@ -67,12 +67,47 @@ export function isAllowed(pathname: string, rules: RobotsRules): boolean {
   return !rules.disallow.some((rule) => pathname.startsWith(rule));
 }
 
-/** Legal and transactional pages: never brand voice, always dilution. */
-const BOILERPLATE_PATH =
-  /(privacy|terms|cookie|legal|imprint|impressum|gdpr|disclaimer|refund|shipping|checkout|cart|login|signup)/i;
+/**
+ * Page names that are legal or transactional rather than brand voice.
+ *
+ * Matched against whole path segments, never as substrings. A substring match
+ * looked simpler and was wrong: `/uk/legal-services` and `/blog/gdpr-checklist`
+ * are exactly the pages a brand's voice lives in, and dropping them can empty a
+ * crawl entirely — which then surfaces as a misleading "check the URL and
+ * robots.txt".
+ */
+const BOILERPLATE_SEGMENTS = new Set([
+  'privacy',
+  'privacy-policy',
+  'terms',
+  'terms-of-service',
+  'terms-of-use',
+  'terms-and-conditions',
+  'tos',
+  'cookies',
+  'cookie-policy',
+  'legal',
+  'imprint',
+  'impressum',
+  'gdpr',
+  'disclaimer',
+  'refund-policy',
+  'shipping-policy',
+  'checkout',
+  'cart',
+  'login',
+  'signin',
+  'sign-in',
+  'signup',
+  'sign-up',
+  'register',
+]);
 
 export function isBoilerplatePath(pathname: string): boolean {
-  return BOILERPLATE_PATH.test(pathname);
+  return pathname
+    .split('/')
+    .filter(Boolean)
+    .some((segment) => BOILERPLATE_SEGMENTS.has(segment.toLowerCase().replace(/\.[a-z]+$/, '')));
 }
 
 /**

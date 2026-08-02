@@ -80,3 +80,23 @@ describe('assembleCorpusInput', () => {
     expect(out).toContain('--- POST: A (a) ---');
   });
 });
+
+describe('assembleCorpusInput — oversized documents', () => {
+  test('skips an oversized document instead of discarding everything after it', () => {
+    const docs = [
+      { url: 'big', title: 'Big', text: 'x'.repeat(5000), kind: 'post' as const },
+      { url: 'small', title: 'Small', text: 'KEEP ME', kind: 'post' as const },
+    ];
+    const out = assembleCorpusInput(docs, 400);
+    expect(out).toContain('KEEP ME');
+    expect(out).not.toContain('x'.repeat(100));
+  });
+
+  test('truncates rather than returning nothing when no document fits', () => {
+    const docs = [{ url: 'big', title: 'Big', text: 'y'.repeat(5000), kind: 'post' as const }];
+    const out = assembleCorpusInput(docs, 400);
+    expect(out.length).toBeGreaterThan(0);
+    expect(out).toContain('truncated');
+    expect(out.length).toBeLessThanOrEqual(400);
+  });
+});

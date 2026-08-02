@@ -18,27 +18,33 @@ export async function fetcher(
     detail: `${sources.length} source(s)`,
   });
 
-  // Re-ingestion replays the recorded sources, so the old rows are replaced
-  // rather than accumulated.
   const db = getDb();
-  await db.brandSource.deleteMany({ where: { brandId } });
-
   const docs: RawDoc[] = [];
+  const rows: Array<{ kind: string; locator: string; body: string | null; pageCount: number }> = [];
+
+  // Fetch everything first, record afterwards. Deleting the old rows up front
+  // meant one failed fetch permanently lost the brand's source list, leaving
+  // re-ingest with nothing to replay and a 409 forever.
   for (const spec of sources) {
     const impl = fetcherFor(spec.kind);
     if (!impl) throw new Error(`Source kind "${spec.kind}" is not available`);
     const fetched = await impl.fetch(spec, threadId);
     docs.push(...fetched);
-    await db.brandSource.create({
-      data: {
-        brandId,
-        kind: spec.kind,
-        locator: spec.locator,
-        pageCount: fetched.length,
-      },
+    rows.push({
+      kind: spec.kind,
+      locator: spec.locator,
+      // A paste has no URL to re-fetch, so the text is the source.
+      body: spec.kind === 'paste' ? spec.body : null,
+      pageCount: fetched.length,
     });
   }
   if (docs.length === 0) throw new Error('No readable content was found in any source');
+
+  // Only now is it safe to replace the recorded sources.
+  await db.$transaction([
+    db.brandSource.deleteMany({ where: { brandId } }),
+    ...rows.map((row) => db.brandSource.create({ data: { brandId, ...row } })),
+  ]);
 
   reportActivity(threadId, {
     step: 'fetcher',

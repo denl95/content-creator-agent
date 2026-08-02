@@ -100,7 +100,8 @@ export default function RunPage() {
   const [running, setRunning] = useState(false);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  const [brands, setBrands] = useState<Brand[]>([]);
+  // null until the request settles, so the form can tell loading from empty.
+  const [brands, setBrands] = useState<Brand[] | null>(null);
 
   // The API sorts the default brand first, so the initial option is correct
   // without the client tracking a default of its own.

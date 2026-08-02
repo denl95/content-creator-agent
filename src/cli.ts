@@ -156,7 +156,9 @@ export async function main(): Promise<void> {
     tone: args.tone,
     target_audience: args.audience,
     word_count: args['word-count'],
-    language: args.language,
+    // --language wins; otherwise follow the brand, since its corpus and style
+    // guide are in that language.
+    language: values.language ?? brand.language,
     brand_id: brand.id,
   });
 

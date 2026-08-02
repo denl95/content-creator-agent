@@ -17,7 +17,7 @@
     "test:unit": "bun test tests/unit",
     "test:judge": "DATABASE_URL=:memory: MAX_ITERATIONS=2 MAX_SEARCHES=3 bun test tests/judge",
     "prisma:generate": "prisma generate",
-    "prisma:deploy": "prisma migrate deploy",
+    "prisma:deploy": "bun run scripts/deploy-migrations.ts",
     "prisma:status": "prisma migrate status",
     "seed-brand": "bun run scripts/seed-brand.ts",
     "reindex": "bun run scripts/reindex.ts",

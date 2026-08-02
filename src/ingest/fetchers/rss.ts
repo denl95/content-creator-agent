@@ -1,12 +1,7 @@
 import { reportActivity } from '../../activity';
 import { decodeEntities, extractText } from '../extract';
-import {
-  FETCH_TIMEOUT_MS,
-  INGEST_USER_AGENT,
-  type RawDoc,
-  type SourceFetcher,
-  type SourceSpec,
-} from '../types';
+import { safeFetch } from '../safety';
+import type { RawDoc, SourceFetcher, SourceSpec } from '../types';
 
 const MAX_ENTRIES = 10;
 
@@ -41,10 +36,8 @@ export const rssFetcher: SourceFetcher = {
   kind: 'rss',
   available: () => true,
   async fetch(spec: SourceSpec, threadId?: string): Promise<RawDoc[]> {
-    const res = await fetch(spec.locator, {
-      headers: { 'user-agent': INGEST_USER_AGENT },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    }).catch(() => null);
+    // safeFetch rather than fetch: a feed URL is attacker-controlled too.
+    const res = await safeFetch(spec.locator).catch(() => null);
     if (!res?.ok) throw new Error(`Could not read the feed at ${spec.locator}`);
 
     const items = parseFeed(await res.text())

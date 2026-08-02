@@ -27,8 +27,12 @@ export function BriefForm({
   onSubmit,
 }: {
   running: boolean;
-  /** Default brand first, so the initial selection needs no extra logic. */
-  brands: Brand[];
+  /**
+   * Default brand first, so the initial selection needs no extra logic.
+   * `null` means still loading — distinct from an empty list, which means the
+   * brands request failed or there are genuinely none.
+   */
+  brands: Brand[] | null;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
@@ -73,14 +77,34 @@ export function BriefForm({
           </label>
           <label className={LABEL}>
             Brand
-            <select name="brand_id" className={FIELD}>
-              {brands.map((brand) => (
-                <option key={brand.id} value={brand.id}>
-                  {brand.name}
-                  {brand.is_default ? ' (default)' : ''}
-                </option>
-              ))}
+            <select
+              name="brand_id"
+              className={FIELD}
+              disabled={!brands || brands.length === 0}
+              required
+            >
+              {brands === null ? (
+                <option value="">Loading…</option>
+              ) : brands.length === 0 ? (
+                <option value="">No brands available</option>
+              ) : (
+                brands.map((brand) => (
+                  <option key={brand.id} value={brand.id}>
+                    {brand.name}
+                    {brand.is_default ? ' (default)' : ''}
+                  </option>
+                ))
+              )}
             </select>
+            {brands?.length === 0 ? (
+              <span className="text-xs text-red-600">
+                Could not load brands. Every run needs one — check you are signed in, or{' '}
+                <a href="/brands/new" className="underline">
+                  ingest a brand
+                </a>
+                .
+              </span>
+            ) : null}
           </label>
           <label className={LABEL}>
             Language

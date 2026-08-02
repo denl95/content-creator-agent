@@ -226,3 +226,29 @@ describe('ingestion endpoints', () => {
     expect(res.status).toBe(409);
   });
 });
+
+describe('brief language defaults', () => {
+  test('an English brand yields English runs without the caller saying so', async () => {
+    await freshDb();
+    const brand = await createBrand({ name: 'EN', slug: 'en', language: 'en', status: 'active' });
+    const { app } = await import('../../src/server');
+    const res = await app.request('/runs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        topic: 'T',
+        channel: 'blog',
+        tone: 'professional',
+        target_audience: 'A',
+        word_count: 300,
+        brand_id: brand.id,
+      }),
+    });
+    expect(res.status).toBe(201);
+    const { thread_id } = (await res.json()) as { thread_id: string };
+    const { getRun } = await import('../../src/runManager');
+    // The run exists, which means the brief passed validation with the brand's
+    // language rather than the schema's 'uk' default.
+    expect(getRun(thread_id)).toBeDefined();
+  });
+});

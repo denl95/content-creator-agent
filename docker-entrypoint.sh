@@ -4,7 +4,11 @@ set -euo pipefail
 # Migrations must land before either process serves traffic. set -e turns a
 # failure here into a non-zero exit, which is what we want: the platform
 # restarts rather than serving against a stale schema.
-bunx prisma migrate deploy
+#
+# Not a bare `prisma migrate deploy`: the live volume predates Prisma, so it has
+# a drafts table and no migration history, and deploy would try to CREATE it
+# again and crash-loop the container. See scripts/deploy-migrations.ts.
+bun run scripts/deploy-migrations.ts
 
 # Every run names a brand, and POST /runs rejects one that does not exist — so a
 # freshly migrated volume with no brand makes the app unusable. Seeding is
