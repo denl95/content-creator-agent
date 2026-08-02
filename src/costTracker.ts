@@ -1,8 +1,20 @@
 import { BaseCallbackHandler } from '@langchain/core/callbacks/base';
 import type { LLMResult } from '@langchain/core/outputs';
 
-const PRICE_INPUT_PER_1M = Number(process.env.PRICE_INPUT_PER_1M ?? 0.15);
-const PRICE_OUTPUT_PER_1M = Number(process.env.PRICE_OUTPUT_PER_1M ?? 0.6);
+/**
+ * Read per call, not once at module load. Module-scope reads meant the rates
+ * were frozen at whichever import happened first — so a suite that set PRICE_*
+ * saw them ignored if any other file had already pulled this module in, and a
+ * long-running process could not pick up a change at all.
+ *
+ * The defaults are gpt-4o-mini's published rates and are correct only for it.
+ */
+function rates(): { input: number; output: number } {
+  return {
+    input: Number(process.env.PRICE_INPUT_PER_1M ?? 0.15),
+    output: Number(process.env.PRICE_OUTPUT_PER_1M ?? 0.6),
+  };
+}
 
 type UsageMetadata = { input_tokens?: number; output_tokens?: number };
 
@@ -37,9 +49,7 @@ export class CostTracker extends BaseCallbackHandler {
   }
 
   costUsd(): number {
-    return (
-      (this.inputTokens * PRICE_INPUT_PER_1M + this.outputTokens * PRICE_OUTPUT_PER_1M) / 1_000_000
-    );
+    return (this.inputTokens * rates().input + this.outputTokens * rates().output) / 1_000_000;
   }
 
   overBudget(): boolean {

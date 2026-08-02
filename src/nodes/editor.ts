@@ -4,11 +4,12 @@ import { MAX_ITERATIONS } from '../constants';
 import { makeChatModel } from '../model';
 import { traceOptions } from '../observability';
 import { compileManagedPrompt, editorVariables } from '../prompts/managed';
-import { EditFeedbackSchema } from '../schemas';
+import { deriveVerdict } from '../routing/verdict';
+import { EditorAssessmentSchema } from '../schemas';
 import type { GraphStateType } from '../state';
 import { lookupBrandStyle } from '../tools/rag';
 
-const editorLLM = makeChatModel().withStructuredOutput(EditFeedbackSchema, {
+const editorLLM = makeChatModel().withStructuredOutput(EditorAssessmentSchema, {
   name: 'edit_feedback',
 });
 
@@ -38,7 +39,7 @@ export async function editor(
     editorVariables(state.plan, state.brief, state.draft.content, brandStyle),
   );
 
-  const editFeedback = await editorLLM.invoke(
+  const assessment = await editorLLM.invoke(
     prompt.messages,
     mergeConfigs(config, {
       runName: `editor-iter-${state.iteration}`,
@@ -50,6 +51,15 @@ export async function editor(
       }),
     }),
   );
+
+  // The model scores; this codebase decides. See src/routing/verdict.ts.
+  const editFeedback = { ...assessment, verdict: deriveVerdict(assessment) };
+
+  reportActivity(threadId, {
+    step: 'editor',
+    kind: 'verdict',
+    detail: `${editFeedback.verdict} · tone ${assessment.tone_score} · accuracy ${assessment.accuracy_score} · structure ${assessment.structure_score}`,
+  });
 
   return { editFeedback };
 }

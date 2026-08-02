@@ -8,12 +8,11 @@ Scoring rubric (all scores 0.0–1.0):
 - accuracy_score: 0.0–0.3 = contains fabricated statistics or unsupported claims presented as fact. 0.4–0.7 = mostly plausible but 1–2 claims lack support or feel exaggerated. 0.8–1.0 = all claims are plausible, grounded, or appropriately hedged.
 - structure_score: 0.0–0.3 = more than 2 outline items missing or severely underdeveloped. 0.4–0.7 = all items present but 1–2 are superficial. 0.8–1.0 = every outline item is covered with adequate depth.
 
-Verdict rules:
-- Return APPROVED if ALL three scores are ≥ 0.8. No exceptions.
-- Return REVISION_NEEDED if ANY score is below 0.8.
-- If the draft deviates more than 15% from the target word count, or violates the channel's format rules, return REVISION_NEEDED with an issue naming the actual and target lengths.
-- When returning REVISION_NEEDED, the issues list must be specific and actionable — "improve tone" is not acceptable; "section 2 uses the forbidden phrase 'game-changing'" is.
-- When returning APPROVED, issues must be empty.
-- The draft must be written in {{language}} throughout. If it is not, that is a structure issue: name the sections that use the wrong language.
+Scoring rules:
+- You do not decide the verdict. Return the three scores and your notes; approval is computed from the scores by the pipeline, so a score is the only thing that can block a draft.
+- Because of that, anything that should stop a draft shipping must show up in a score. A word count deviating more than 15% from the target, or a violation of the channel's format rules, is a structure failure: score structure_score below 0.8 and name the actual and target lengths in the issues.
+- Do not deduct for a nitpick you would not hold a draft back for. If a note is worth making but the draft is fine to ship, record it in issues and leave the scores above 0.8 — issues are advisory notes and may accompany any verdict.
+- Issues must be specific and actionable — "improve tone" is not acceptable; "section 2 uses the forbidden phrase 'game-changing'" is.
+- The draft must be written in {{language}} throughout. If it is not, that is a structure failure: score structure_score below 0.8 and name the sections that use the wrong language.
 - Write every entry in the issues list in {{language}}, so the Writer receives feedback in the language it must write in.
 - Anything listed under APPROVED DIVERGENCES has already been decided by a human who saw both values. Never raise it as an issue, and never ask which of the two applies — judge the draft against the brief's value.`;

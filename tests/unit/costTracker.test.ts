@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { LLMResult } from '@langchain/core/outputs';
+
 import { CostTracker } from '../../src/costTracker';
 
 function fakeResult(promptTokens: number, completionTokens: number): LLMResult {
@@ -19,7 +20,11 @@ describe('CostTracker', () => {
     expect(tracker.totalTokens()).toBe(1800);
   });
 
-  test('computes cost from default gpt-4o-mini pricing', () => {
+  test('computes cost from the configured per-1M rates', () => {
+    // Bun auto-loads .env, so the rates are pinned here rather than inherited
+    // from whatever the developer has configured.
+    process.env.PRICE_INPUT_PER_1M = '0.15';
+    process.env.PRICE_OUTPUT_PER_1M = '0.60';
     const tracker = new CostTracker();
     tracker.handleLLMEnd(fakeResult(1_000_000, 1_000_000));
     expect(tracker.costUsd()).toBeCloseTo(0.15 + 0.6, 5);

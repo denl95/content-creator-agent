@@ -56,15 +56,18 @@ export const DraftContentSchema = z.object({
     .describe("Subset of the plan's keywords that appear in the content"),
 });
 
-export const EditFeedbackSchema = z.object({
-  verdict: z
-    .enum(['APPROVED', 'REVISION_NEEDED'])
-    .describe(
-      'APPROVED if all scores ≥ 0.8 and no critical issues remain, otherwise REVISION_NEEDED',
-    ),
+/**
+ * What the Editor model returns. Deliberately has no `verdict`: applying a
+ * threshold to three numbers is arithmetic, not judgement, and asking the model
+ * for it produced verdicts that contradicted its own scores. `deriveVerdict()`
+ * in src/routing/verdict.ts supplies it.
+ */
+export const EditorAssessmentSchema = z.object({
   issues: z
     .array(z.string())
-    .describe('Specific, actionable issues the Writer must address; empty when APPROVED'),
+    .describe(
+      'Specific, actionable notes for the Writer. Anything that should block approval must also be reflected in the scores.',
+    ),
   tone_score: z
     .number()
     .min(0)
@@ -85,4 +88,10 @@ export const EditFeedbackSchema = z.object({
 export type Brief = z.infer<typeof BriefSchema>;
 export type ContentPlan = z.infer<typeof ContentPlanSchema>;
 export type DraftContent = z.infer<typeof DraftContentSchema>;
+export type EditorAssessment = z.infer<typeof EditorAssessmentSchema>;
+
+/** The assessment plus the verdict this codebase derives from it. */
+export const EditFeedbackSchema = EditorAssessmentSchema.extend({
+  verdict: z.enum(['APPROVED', 'REVISION_NEEDED']),
+});
 export type EditFeedback = z.infer<typeof EditFeedbackSchema>;
