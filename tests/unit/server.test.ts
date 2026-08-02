@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { getDb, insertDraft, resetDbForTests } from '../../src/db';
-import { app } from '../../src/server';
+import {
+  app,
+  pumpKeepalive,
+  SERVER_IDLE_TIMEOUT_S,
+  SSE_KEEPALIVE_MS,
+  SSE_POLL_MS,
+} from '../../src/server';
 
 beforeEach(() => {
   getDb(':memory:');
@@ -56,5 +62,41 @@ describe('runs endpoints', () => {
       body: JSON.stringify({ topic: '' }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('SSE keepalive', () => {
+  function fakeStream() {
+    const writes: string[] = [];
+    return {
+      writes,
+      write: async (chunk: string) => {
+        writes.push(chunk);
+      },
+      // Instant, so the cadence is asserted from the accounting, not wall clock.
+      sleep: async () => {},
+    };
+  }
+
+  test('writes a comment frame on the keepalive cadence, not every poll', async () => {
+    const stream = fakeStream();
+    let ticks = 0;
+    await pumpKeepalive(stream, () => ticks++ < 20, { pollMs: 1000, keepaliveMs: 5000 });
+    expect(stream.writes).toHaveLength(4);
+    // A comment line: EventSource discards it, so it never reaches onmessage
+    // and can never be mistaken for a RunEvent.
+    expect(stream.writes[0]).toBe(': keepalive\n\n');
+  });
+
+  test('stops as soon as the stream closes', async () => {
+    const stream = fakeStream();
+    await pumpKeepalive(stream, () => false, { pollMs: 1000, keepaliveMs: 1000 });
+    expect(stream.writes).toHaveLength(0);
+  });
+
+  test('cadence stays under the idle timeout that closes the socket', () => {
+    // Bun.serve closes idle connections; this ordering is the whole fix.
+    expect(SSE_KEEPALIVE_MS).toBeLessThan(SERVER_IDLE_TIMEOUT_S * 1000);
+    expect(SSE_POLL_MS).toBeLessThanOrEqual(SSE_KEEPALIVE_MS);
   });
 });

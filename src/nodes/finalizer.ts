@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import { reportActivity } from '../activity';
 import { insertDraft } from '../db';
 import type { GraphStateType } from '../state';
 
@@ -39,7 +40,11 @@ export async function finalizer(
     iterations: state.iteration,
     issues: fb?.issues ?? [],
   });
-  console.log(`[finalizer] Draft saved to database (id=${threadId})`);
+  reportActivity(threadId, {
+    step: 'finalizer',
+    kind: 'saved',
+    detail: `${state.draft.word_count} words saved to the database (id=${threadId})`,
+  });
 
   if (process.env.WRITE_OUTPUT_FILES === 'true') {
     await mkdir(OUTPUT_DIR, { recursive: true });

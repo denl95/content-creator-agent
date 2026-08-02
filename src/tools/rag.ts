@@ -6,6 +6,7 @@ import { OpenAIEmbeddings } from '@langchain/openai';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import type { Collection, CollectionMetadata } from 'chromadb';
 import { z } from 'zod';
+import { reportActivity } from '../activity';
 import { type BrandPage, fetchBrandPages } from '../mcp/notion';
 import { MemoryVectorStore } from './memoryVectorStore';
 
@@ -199,7 +200,15 @@ async function lookupBrandStyleMemory(query: string): Promise<string> {
   return results.join('\n---\n');
 }
 
-export async function lookupBrandStyle(query: string): Promise<string> {
+/**
+ * Retrieve brand style excerpts, reporting the query as it goes.
+ *
+ * The report lives here rather than at each call site so the detail shown in the
+ * dashboard cannot drift from the query actually run — both callers (the
+ * strategist's tool and the editor node) previously reported it themselves.
+ */
+export async function lookupBrandStyle(query: string, threadId?: string): Promise<string> {
+  reportActivity(threadId, { kind: 'brand_style_lookup', detail: `"${query}"` });
   if (VECTOR_STORE === 'memory') return lookupBrandStyleMemory(query);
   const store = await getStore();
   const results = await store.similaritySearch(query, 4);
@@ -208,10 +217,10 @@ export async function lookupBrandStyle(query: string): Promise<string> {
 }
 
 export const brandStyleRetriever = tool(
-  async ({ query }) => {
-    console.log(`[brand_style_lookup] "${query}"`);
-    return lookupBrandStyle(query);
-  },
+  // lookupBrandStyle does the reporting; the step is inherited from the calling
+  // node, since a tool cannot name its own (see reportActivity).
+  async ({ query }, config) =>
+    lookupBrandStyle(query, config?.configurable?.thread_id as string | undefined),
   {
     name: 'brand_style_lookup',
     description:

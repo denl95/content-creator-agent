@@ -12,7 +12,7 @@ import {
 } from './auth';
 import { getDraft, getStats, listDrafts, setDraftNotionUrl } from './db';
 import { publishDraft } from './mcp/notion';
-import { getRun, resumeRun, startRun, subscribe, sweepStaleRuns } from './runManager';
+import { getRun, isTerminal, resumeRun, startRun, subscribe, sweepStaleRuns } from './runManager';
 import { BriefSchema } from './schemas';
 
 const ResumeSchema = z.union([
@@ -21,6 +21,42 @@ const ResumeSchema = z.union([
 ]);
 
 export const app = new Hono();
+
+// Bun.serve closes a connection that has sent and received nothing for
+// `idleTimeout` seconds — and its default is 10. A run's SSE stream is silent
+// between node completions, and a single node routinely runs far longer than
+// that (the strategist alone does a brand lookup plus up to 10 web searches),
+// so the socket was being killed mid-run and the Next rewrite proxy logged it
+// as `socket hang up` / ECONNRESET. Two independent guards:
+//   - a comment frame every SSE_KEEPALIVE_MS, so the connection is never idle;
+//   - a raised idleTimeout, so one slow write can't undo it. Bun caps this at 255.
+// idleTimeout is per-server, not per-route, so ordinary requests hold an idle
+// socket 12x longer too. That is the accepted cost of the second guard: this is
+// a single-machine API behind Fly's proxy, not a high-fanout public endpoint.
+export const SSE_POLL_MS = 1000;
+export const SSE_KEEPALIVE_MS = 5000;
+export const SERVER_IDLE_TIMEOUT_S = 120;
+
+/**
+ * Holds an SSE connection open while `isOpen()` is true, emitting a comment
+ * frame on the keepalive cadence. Comments (`:` lines) are discarded by
+ * EventSource, so they never surface as a `RunEvent` on the client.
+ */
+export async function pumpKeepalive(
+  stream: { write: (chunk: string) => Promise<unknown>; sleep: (ms: number) => Promise<unknown> },
+  isOpen: () => boolean,
+  { pollMs = SSE_POLL_MS, keepaliveMs = SSE_KEEPALIVE_MS } = {},
+): Promise<void> {
+  let sinceKeepalive = 0;
+  while (isOpen()) {
+    await stream.sleep(pollMs);
+    sinceKeepalive += pollMs;
+    if (sinceKeepalive >= keepaliveMs) {
+      sinceKeepalive = 0;
+      await stream.write(': keepalive\n\n');
+    }
+  }
+}
 
 const LoginSchema = z.object({ password: z.string() });
 
@@ -92,8 +128,13 @@ app.post('/runs/:id/resume', async (c) => {
   const body = await c.req.json().catch(() => null);
   const parsed = ResumeSchema.safeParse(body);
   if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
-  const ok = resumeRun(c.req.param('id'), parsed.data);
-  if (!ok) return c.json({ error: 'run not found or not awaiting approval' }, 409);
+  const result = resumeRun(c.req.param('id'), parsed.data);
+  if (!result.resumed) {
+    // `status` is what lets the client tell a run that is gone from one that has
+    // already moved past the gate — a retried resume needs that distinction, and
+    // it is knowledge only this handler has.
+    return c.json({ error: 'run not found or not awaiting approval', status: result.status }, 409);
+  }
   return c.json({ resumed: true });
 });
 
@@ -101,7 +142,14 @@ app.get('/runs/:id/events', (c) => {
   const id = c.req.param('id');
   const run = getRun(id);
   if (!run) return c.json({ error: 'run not found' }, 404);
-  return streamSSE(c, async (stream) => {
+  // `no-transform` is what stops an intermediary from gzipping this stream.
+  // Next's proxy compresses proxied responses when the client sends
+  // Accept-Encoding: gzip — every browser does, curl does not — and the gzip
+  // encoder buffers, so the browser held an open connection that delivered
+  // nothing until the run ended. Verified by reading `content-encoding: gzip`
+  // off the response in the page. Hono's streamSSE sets Cache-Control itself,
+  // so this has to be applied to the Response it returns.
+  const res = streamSSE(c, async (stream) => {
     for (const event of run.events) {
       await stream.writeSSE({ data: JSON.stringify(event) });
     }
@@ -113,15 +161,27 @@ app.get('/runs/:id/events', (c) => {
       void stream.writeSSE({ data: JSON.stringify(event) });
     });
     try {
-      while (open) {
+      // The poll does a second job beyond spotting a terminal status: a run
+      // removed by sweepStaleRuns emits nothing, so closing on the done/error
+      // event alone would leave that stream open forever.
+      await pumpKeepalive(stream, () => {
+        if (!open) return false;
         const current = getRun(id);
-        if (!current || current.status === 'done' || current.status === 'error') break;
-        await stream.sleep(1000);
-      }
+        return !!current && !isTerminal(current.status);
+      });
     } finally {
       unsubscribe?.();
     }
   });
+  // Augment rather than replace, so anything Hono sets here in future survives.
+  res.headers.set(
+    'Cache-Control',
+    `${res.headers.get('Cache-Control') ?? 'no-cache'}, no-transform`,
+  );
+  // Belt and braces for the day this sits behind nginx, which buffers proxied
+  // responses regardless of Cache-Control.
+  res.headers.set('X-Accel-Buffering', 'no');
+  return res;
 });
 
 app.get('/drafts', (c) => c.json(listDrafts()));
@@ -163,5 +223,6 @@ app.post('/drafts/:id/publish', async (c) => {
 // API only — the Next.js app in web/ serves the UI and proxies here via /api/*.
 export default {
   port: Number(process.env.PORT ?? 3000),
+  idleTimeout: SERVER_IDLE_TIMEOUT_S,
   fetch: app.fetch,
 };

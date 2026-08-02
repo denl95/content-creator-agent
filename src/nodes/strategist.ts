@@ -1,5 +1,6 @@
 import { mergeConfigs, type RunnableConfig } from '@langchain/core/runnables';
 import { createAgent } from 'langchain';
+import { reportActivity } from '../activity';
 import { model } from '../model';
 import { traceOptions } from '../observability';
 import { compileManagedPrompt, strategistVariables } from '../prompts/managed';
@@ -13,6 +14,13 @@ export async function strategist(
 ): Promise<Partial<GraphStateType>> {
   const threadId = config?.configurable?.thread_id as string | undefined;
   const isRevision = Boolean(state.userPlanFeedback);
+  reportActivity(threadId, {
+    step: 'strategist',
+    kind: isRevision ? 'replanning' : 'planning',
+    detail: isRevision
+      ? `revising the plan: "${state.userPlanFeedback}"`
+      : `researching "${state.brief.topic}" for ${state.brief.channel}`,
+  });
   const prompt = await compileManagedPrompt(
     'strategist',
     strategistVariables(state.brief, state.userPlanFeedback),

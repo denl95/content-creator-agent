@@ -1,5 +1,7 @@
 import { mergeConfigs, type RunnableConfig } from '@langchain/core/runnables';
 import { createAgent } from 'langchain';
+import { reportActivity } from '../activity';
+import { MAX_ITERATIONS } from '../constants';
 import { model } from '../model';
 import { traceOptions } from '../observability';
 import { compileManagedPrompt, writerVariables } from '../prompts/managed';
@@ -20,6 +22,11 @@ export async function writer(
   const iteration = state.iteration + 1;
   const prior =
     state.draft && state.editFeedback ? { draft: state.draft, feedback: state.editFeedback } : null;
+  reportActivity(threadId, {
+    step: 'writer',
+    kind: prior ? 'rewriting' : 'writing',
+    detail: `draft ${iteration} of ${MAX_ITERATIONS} · ${state.brief.word_count} words for ${state.brief.channel}`,
+  });
   const prompt = await compileManagedPrompt(
     'writer',
     writerVariables(state.plan, state.brief, prior),
