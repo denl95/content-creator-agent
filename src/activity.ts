@@ -60,9 +60,12 @@ export function reportActivity(threadId: string | undefined, activity: Activity)
   const write = activity.kind.endsWith('_failed') ? console.error : console.log;
   write(`[${activity.kind}] ${activity.detail}`);
   if (!threadId) return;
-  if (activity.step) lastSteps.set(threadId, activity.step);
   const sink = sinks.get(threadId);
+  // Bail before touching `lastSteps`: inheritance is only ever consumed by a
+  // sink, and a thread with no sink (the CLI, a swept run, a tool still
+  // finishing after its run errored) has nothing to clear the entry later.
   if (!sink) return;
+  if (activity.step) lastSteps.set(threadId, activity.step);
   // 'strategist' is the only node whose tools could run before any node has
   // reported, so it is the safe floor for an inherited step.
   const step = activity.step ?? lastSteps.get(threadId) ?? 'strategist';

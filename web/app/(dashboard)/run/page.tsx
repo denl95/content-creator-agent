@@ -35,7 +35,7 @@ export default function RunPage() {
   const [plan, setPlan] = useState<ContentPlan | null>(null);
   const [feedback, setFeedback] = useState<EditFeedback | null>(null);
   const [result, setResult] = useState<{ costUsd: number; tokens: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ title: string; message: string } | null>(null);
   const [running, setRunning] = useState(false);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [live, setLive] = useState<{ costUsd: number; tokens: number } | null>(null);
@@ -57,10 +57,12 @@ export default function RunPage() {
   // The page owns the EventSource, so it must be closed when the user leaves.
   useEffect(() => () => source.current?.close(), []);
 
-  function stop(message?: string) {
+  // Not every stop is a failed run — a rejected resume or a dropped connection
+  // leaves the run alive server-side, so the heading has to say which it is.
+  function stop(failure?: { title: string; message: string }) {
     setRunning(false);
     setActive(null);
-    if (message) setError(message);
+    if (failure) setError(failure);
   }
 
   function handle(event: RunEvent) {
@@ -97,7 +99,7 @@ export default function RunPage() {
     }
     if (event.node === 'error') {
       setConnection('idle');
-      stop(event.data.message ?? 'The run failed.');
+      stop({ title: 'Run failed', message: event.data.message ?? 'The run failed.' });
       source.current?.close();
     }
   }
@@ -125,9 +127,11 @@ export default function RunPage() {
       // own, so say so rather than declaring failure.
       if (es.readyState === EventSource.CLOSED) {
         setConnection('lost');
-        stop(
-          'Lost the connection to this run and could not reconnect. If the server restarted, the run is gone — but any finished draft is still saved under Drafts.',
-        );
+        stop({
+          title: 'Connection lost',
+          message:
+            'Lost the connection to this run and could not reconnect. If the server restarted, the run is gone — but any finished draft is still saved under Drafts.',
+        });
       } else {
         setConnection('reconnecting');
       }
@@ -167,22 +171,42 @@ export default function RunPage() {
         }),
       });
     } catch {
-      stop('Could not reach the server. Check that the API is running and try again.');
+      stop({
+        title: 'Cannot reach the server',
+        message: 'Check that the API is running and try again.',
+      });
       return;
     }
     if (!res.ok) {
-      stop(await errorMessage(res, 'Could not start the run'));
+      stop({
+        title: 'Could not start the run',
+        message: await errorMessage(res, 'Could not start the run'),
+      });
       return;
     }
-    const { thread_id } = (await res.json()) as { thread_id: string };
-    threadIdRef.current = thread_id;
-    setThreadId(thread_id);
-    listen(thread_id);
+    // A 2xx that is not the JSON we expect would otherwise throw here and leave
+    // the form pinned on "Running…" with nothing shown.
+    const body = (await res.json().catch(() => null)) as { thread_id?: unknown } | null;
+    if (typeof body?.thread_id !== 'string') {
+      stop({
+        title: 'Could not start the run',
+        message: 'The server accepted the brief but returned no run id.',
+      });
+      return;
+    }
+    threadIdRef.current = body.thread_id;
+    setThreadId(body.thread_id);
+    listen(body.thread_id);
   }
 
   async function decide(approved: boolean, note?: string) {
     const id = threadIdRef.current;
     if (!id) return;
+    // Keep the plan so a failed submit can put the card back. Without this the
+    // approval UI is gone for a run that is still sitting in awaiting_approval
+    // server-side, and telling the user "the run is still waiting" is useless
+    // because there is no longer anything to approve with.
+    const submitted = plan;
     setPlan(null);
     setActive('writer');
     let res: Response;
@@ -193,17 +217,29 @@ export default function RunPage() {
         body: JSON.stringify(approved ? { approved: true } : { approved: false, feedback: note }),
       });
     } catch {
-      stop('Could not reach the server to submit your decision. The run is still waiting.');
+      setPlan(submitted);
+      stop({
+        title: 'Could not submit your decision',
+        message: 'The server was unreachable. The run is still waiting — try again.',
+      });
       return;
     }
     if (!res.ok) {
-      // 409 is the common one: the run is no longer awaiting approval because the
-      // server restarted or the TTL sweep dropped it. Runs live in memory only.
-      stop(
-        res.status === 409
-          ? 'This run is no longer active — the server restarted or it timed out. Start a new run.'
-          : await errorMessage(res, 'Could not submit your decision'),
-      );
+      // 409 is the only status where discarding the plan is right: the run is no
+      // longer awaiting approval because the server restarted or the TTL sweep
+      // dropped it, and runs live in memory only. Everything else is retryable.
+      if (res.status === 409) {
+        stop({
+          title: 'Run no longer active',
+          message: 'The server restarted or the run timed out. Start a new run.',
+        });
+      } else {
+        setPlan(submitted);
+        stop({
+          title: 'Could not submit your decision',
+          message: await errorMessage(res, 'The server rejected the request'),
+        });
+      }
       return;
     }
     listen(id);
@@ -276,7 +312,7 @@ export default function RunPage() {
         <PipelineProgress done={done} active={active} />
 
         {running || activity.length > 0 ? (
-          <p className="eonyx-label flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p aria-live="polite" className="eonyx-label flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="tabular-nums">{formatElapsed(elapsed)} elapsed</span>
             {live ? (
               <>
@@ -309,8 +345,8 @@ export default function RunPage() {
           role="alert"
           className="rounded-sm border border-l-2 border-destructive/40 border-l-destructive bg-destructive/10 p-4"
         >
-          <p className="eonyx-label text-destructive">Run failed</p>
-          <p className="mt-1 text-sm">{error}</p>
+          <p className="eonyx-label text-destructive">{error.title}</p>
+          <p className="mt-1 text-sm">{error.message}</p>
           {connection === 'lost' && threadId ? (
             <Button
               variant="secondary"
@@ -334,7 +370,8 @@ export default function RunPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              {formatUsd(result.costUsd)} · {result.tokens} tokens · {formatElapsed(elapsed)}
+              {formatUsd(result.costUsd)} · {result.tokens.toLocaleString()} tokens ·{' '}
+              {formatElapsed(elapsed)}
             </p>
             <Link href={`/drafts/${threadId}`} className="text-sm underline">
               Open the finished draft →

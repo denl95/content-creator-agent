@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { FAILED_KINDS, type RunActivity } from '@/lib/types';
+import { type UIEvent, useEffect, useRef } from 'react';
+import { isFailedKind, type RunActivity } from '@/lib/types';
 
 export type ActivityEntry = RunActivity & { ts: number; seq: number };
+
+/** Distance from the bottom, in px, still counted as "following the tail". */
+const PIN_THRESHOLD = 48;
 
 function clock(ts: number): string {
   return new Date(ts).toLocaleTimeString([], {
@@ -14,21 +17,37 @@ function clock(ts: number): string {
 }
 
 export function ActivityLog({ entries }: { entries: ActivityEntry[] }) {
-  const endRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  // Whether the user is still reading the tail. Tracked on scroll rather than
+  // measured inside the effect: by the time the effect runs the new row has
+  // already grown scrollHeight, so every check would read as "not at the
+  // bottom" and someone scrolled up to read an earlier line would be yanked
+  // back down on the next web search.
+  const pinned = useRef(true);
 
-  // Follow the tail as work streams in. Keyed on `entries.length` rather than
-  // `entries` so a re-render with the same list does not yank the user's scroll.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'nearest' });
+    const el = listRef.current;
+    if (el && pinned.current) el.scrollTop = el.scrollHeight;
   }, [entries.length]);
+
+  function handleScroll(event: UIEvent<HTMLDivElement>) {
+    const el = event.currentTarget;
+    pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < PIN_THRESHOLD;
+  }
 
   if (entries.length === 0) return null;
 
   return (
-    <div className="max-h-64 overflow-y-auto rounded-sm border border-border bg-card">
+    <div
+      ref={listRef}
+      onScroll={handleScroll}
+      aria-live="polite"
+      aria-label="Run activity"
+      className="max-h-64 overflow-y-auto rounded-sm border border-border bg-card"
+    >
       <ul className="divide-y divide-border">
         {entries.map((entry) => {
-          const failed = FAILED_KINDS.includes(entry.kind);
+          const failed = isFailedKind(entry.kind);
           return (
             <li
               key={entry.seq}
@@ -50,7 +69,6 @@ export function ActivityLog({ entries }: { entries: ActivityEntry[] }) {
           );
         })}
       </ul>
-      <div ref={endRef} />
     </div>
   );
 }

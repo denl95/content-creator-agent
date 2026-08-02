@@ -20,8 +20,15 @@ export type RunActivity = {
   tokens: number;
 };
 
-/** Activity kinds that report a failure rather than progress. */
-export const FAILED_KINDS = ['web_search_failed', 'publish_failed'];
+/**
+ * A kind reports a failure rather than progress. This is the same predicate
+ * `src/activity.ts` uses to route to stderr — matching on the suffix rather
+ * than listing known kinds means a new `*_failed` kind on the API renders
+ * correctly here without a matching edit.
+ */
+export function isFailedKind(kind: string): boolean {
+  return kind.endsWith('_failed');
+}
 
 export type ContentPlan = {
   outline: string[];

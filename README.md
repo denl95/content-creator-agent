@@ -351,6 +351,8 @@ src/
   db.ts             — SQLite drafts store + /stats aggregation
   server.ts         — Hono API (no static serving; the dashboard is separate)
   runManager.ts     — drives the graph for HTTP, SSE pub-sub, TTL sweep
+  activity.ts       — per-run progress channel (tools/nodes → stdout + SSE)
+  costTracker.ts    — token/cost accounting attached to every run
 web/                — Next.js dashboard (own package.json, tsconfig, eslint)
   app/(dashboard)/  — /, /run, /drafts, /drafts/[id]
   app/globals.css   — EONYX tokens (dark :root + html.light) → shadcn vars

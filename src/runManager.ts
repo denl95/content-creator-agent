@@ -67,6 +67,18 @@ function summarize(node: string, value: unknown): unknown {
 // biome-ignore lint/suspicious/noExplicitAny: graph.stream accepts either partial state or a Command; matches the pattern in src/cli.ts
 async function drive(run: InternalRun, input: any): Promise<void> {
   const config = { configurable: { thread_id: run.threadId }, callbacks: [run.tracker] };
+  // Registered here, not in startRun, so that registering and clearing live in
+  // the same function — resumeRun drives the same run again and would otherwise
+  // depend on startRun's registration still being in place. Re-registering is
+  // idempotent. Tool- and node-level progress carries the live cost/token
+  // totals so the dashboard can show a running counter, not just a final figure.
+  setActivitySink(run.threadId, (activity) => {
+    emit(run, 'activity', {
+      ...activity,
+      costUsd: run.tracker.costUsd(),
+      tokens: run.tracker.totalTokens(),
+    });
+  });
   try {
     run.status = 'running';
     let interrupted = false;
@@ -121,15 +133,6 @@ export function startRun(brief: Brief): string {
   };
   runs.set(threadId, run);
   resetSearchCount(threadId);
-  // Tool- and node-level progress, plus a running cost/token total so the
-  // dashboard can show a live counter instead of only a figure at the end.
-  setActivitySink(threadId, (activity) => {
-    emit(run, 'activity', {
-      ...activity,
-      costUsd: run.tracker.costUsd(),
-      tokens: run.tracker.totalTokens(),
-    });
-  });
   void drive(run, makeInitialState(brief));
   return threadId;
 }
