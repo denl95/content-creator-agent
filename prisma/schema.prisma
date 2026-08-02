@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// Mirrors the hand-written `drafts` table that predates Prisma. Every field
+/// carries @map so the models describe the live table rather than renaming it.
+model Draft {
+  id             String   @id
+  topic          String
+  channel        String
+  tone           String
+  audience       String
+  content        String
+  wordCount      Int      @map("word_count")
+  verdict        String?
+  toneScore      Float?   @map("tone_score")
+  accuracyScore  Float?   @map("accuracy_score")
+  structureScore Float?   @map("structure_score")
+  iterations     Int      @default(0)
+  issues         String   @default("[]")
+  costUsd        Float?   @map("cost_usd")
+  notionUrl      String?  @map("notion_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("drafts")
+}

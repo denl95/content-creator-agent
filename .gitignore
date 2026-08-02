@@ -40,3 +40,6 @@ web/node_modules
 web/out
 
 .playwright-mcp/
+
+# Prisma generated client (~204KB of generated TypeScript)
+src/generated/
