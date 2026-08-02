@@ -34,7 +34,7 @@ flowchart LR
 ### Structured output contracts
 
 ```ts
-ContentPlan   { outline, keywords, key_messages, target_audience, tone }
+ContentPlan   { outline, keywords, key_messages, target_audience, tone, conflicts }
 DraftContent  { content, word_count, keywords_used }
 EditFeedback  { verdict: "APPROVED"|"REVISION_NEEDED", issues, tone_score, accuracy_score, structure_score }
 ```
@@ -138,6 +138,7 @@ Options:
 | `--tone` | any string | yes |
 | `--audience` | any string | yes |
 | `--word-count` | integer | yes |
+| `--language` | BCP-47 tag, e.g. `uk` / `en` (default `uk`) | no |
 | `--verbose` | flag | no |
 
 Each run prints token usage and estimated cost at the end — configure costs via `PRICE_INPUT_PER_1M` / `PRICE_OUTPUT_PER_1M`.
