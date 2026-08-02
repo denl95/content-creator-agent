@@ -1,0 +1,155 @@
+import type { Messages } from './en';
+
+/**
+ * The `Messages` annotation is what makes a missing key fail the build rather
+ * than render blank in a demo.
+ */
+const uk: Messages = {
+  app: { name: 'EONYX' },
+
+  nav: {
+    dashboard: 'Панель',
+    newRun: 'Новий запуск',
+    brands: 'Бренди',
+    drafts: 'Чернетки',
+    home: 'EONYX — головна',
+    theme: 'Змінити тему',
+    language: 'Мова',
+  },
+
+  common: {
+    approve: 'Затвердити',
+    requestChanges: 'Надіслати правки',
+    none: 'Немає',
+    loading: 'Завантаження…',
+    words: 'Слів',
+    cost: 'Вартість',
+    channel: 'Канал',
+    brand: 'Бренд',
+    language: 'Мова',
+    created: 'Створено',
+    status: 'Статус',
+    verdict: 'Вердикт',
+    topic: 'Тема',
+    tone: 'Тон',
+    audience: 'Аудиторія',
+    wordCount: 'Кількість слів',
+    iterations: 'Ітерацій',
+    scores: 'Оцінки',
+    name: 'Назва',
+  },
+
+  dashboard: {
+    title: 'Панель',
+    newRun: 'Новий запуск →',
+    drafts: 'Чернетки',
+    approved: 'Затверджено',
+    approvedHint: (n) => `${n.approved} з ${n.total}`,
+    totalSpend: 'Загальні витрати',
+    avgIterations: 'Середньо ітерацій',
+    spendOverTime: 'Витрати за час',
+    draftsPerChannel: 'Чернетки за каналами',
+    recentDrafts: 'Останні чернетки',
+    empty: 'Поки нічого немає.',
+    emptyCta: 'Створити першу чернетку →',
+  },
+
+  run: {
+    title: 'Новий запуск',
+    generate: 'Згенерувати',
+    running: 'Виконується…',
+    planTitle: 'Контент-план — затвердити?',
+    keywords: 'Ключові слова:',
+    tone: 'Тон:',
+    audience: 'Аудиторія:',
+    feedbackPlaceholder: 'Коментар (обов’язковий, щоб надіслати правки)',
+    conflictsTitle: 'Бриф має перевагу над гайдом бренду',
+    conflictsNote: 'Затвердження залишає значення з брифу.',
+    conflictLine: (c) => `бриф: ${c.brief} · гайд бренду: ${c.corpus}`,
+    done: 'Готово',
+    openDraft: 'Відкрити готову чернетку →',
+    result: (r) => `${r.cost} · ${r.tokens} токенів`,
+    editorLine: (e) =>
+      `редактор: ${e.verdict} · тон ${e.tone} · точність ${e.accuracy} · структура ${e.structure}`,
+    brandsUnavailable:
+      'Не вдалося завантажити бренди. Кожен запуск потребує бренду — перевірте, чи ви увійшли, або',
+    brandsUnavailableCta: 'додайте бренд',
+    noBrands: 'Немає доступних брендів',
+    reconnect: 'Перепідключитися',
+    reconnecting: 'Перепідключення…',
+  },
+
+  brands: {
+    title: 'Бренди',
+    newBrand: 'Новий бренд',
+    empty: 'Брендів ще немає.',
+    emptyCta: 'Додати бренд із сайту →',
+    default: 'за замовчуванням',
+    ingesting: 'Опрацювання…',
+    ingest: 'Додати бренд',
+    websiteUrl: 'URL сайту',
+    websiteHint:
+      'Шлях обмежує обхід: /uk залишається в межах цього розділу, тож двомовний сайт не дасть змішаного корпусу.',
+    feed: 'RSS або Atom стрічка (необов’язково)',
+    pasted: 'Вставлені пости (необов’язково)',
+    pastedHint:
+      'Розділяйте пости рядком із трьох дефісів. Реальні опубліковані тексти — значно кращий доказ голосу, ніж лендинг.',
+    needSource: 'Вкажіть хоча б одне джерело: сайт, стрічку або вставлені пости.',
+    reviewTitle: (b) => `${b.name} — затвердити цей бренд?`,
+    reviewMeta: (b) => `${b.language} · ${b.exemplars} зразків`,
+    mission: 'Місія',
+    voice: 'Голос — по одному в рядку',
+    forbidden: 'Заборонені фрази — по одній у рядку',
+    exemplarNote:
+      'Зразки приймаються або перегенеровуються цілим набором — відредагований вручну зразок перестає бути доказом того, як бренд насправді пише.',
+    distilAgain: 'Перегенерувати',
+    feedbackPlaceholder: 'Коментар (обов’язковий для перегенерації)',
+    overview: 'Огляд бренду',
+    styleGuide: 'Гайд зі стилю',
+    exemplars: (n) => `Зразки (${n.count})`,
+    noExemplars: 'Не збережено.',
+    provenance: 'Джерела',
+    provenanceOne: 'сторінка збережена для довідки й свідомо не індексується.',
+    provenanceMany: 'сторінок збережено для довідки й свідомо не індексуються.',
+  },
+
+  drafts: {
+    title: 'Чернетки',
+    empty: 'Чернеток ще немає.',
+    emptyCta: 'Створити чернетку →',
+    content: 'Текст',
+    editorIssues: 'Зауваження редактора',
+    scoresHint: 'тон / точність / структура',
+    openNotion: 'Відкрити в Notion →',
+    publish: 'Опублікувати в Notion',
+    publishing: 'Публікація…',
+  },
+
+  login: {
+    title: 'Вхід',
+    password: 'Пароль',
+    submit: 'Увійти',
+    failed: 'Невірний пароль.',
+  },
+
+  errors: {
+    generic: 'Щось пішло не так.',
+    sessionExpired: 'Сесія завершилася. Увійдіть знову, щоб продовжити.',
+    unauthorized: 'Ви не увійшли в систему.',
+    passwordRequired: 'Потрібен пароль.',
+    invalidPassword: 'Невірний пароль.',
+    brandNotFound: 'Такого бренду більше не існує.',
+    brandInactive: 'Бренд невідомий або ще не активний.',
+    brandHasNoSources: 'У цього бренду немає збережених джерел для повторного опрацювання.',
+    brandPasteOnly:
+      'У цього бренду є лише вставлені джерела, збережені до того, як почав зберігатися їхній текст — створіть бренд заново.',
+    brandIsDefault: 'Не можна видалити бренд за замовчуванням. Спершу зробіть іншим.',
+    draftNotFound: 'Такої чернетки більше не існує.',
+    runNotFound: 'Такого запуску більше не існує.',
+    runNotAwaiting: 'Цей запуск більше не очікує на затвердження.',
+    notionNotConfigured: 'Notion не налаштовано на сервері.',
+    publishFailed: 'Не вдалося опублікувати в Notion.',
+  },
+};
+
+export default uk;
