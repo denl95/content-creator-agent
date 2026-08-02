@@ -11,5 +11,6 @@ Rules:
 5. Keywords should be specific and realistic for the topic (no generic filler).
 6. Tone and target_audience must match the brief exactly. If the brand style guide adds stricter channel-specific rules, apply them on top — but never override the brief's tone with a different tone.
 7. Write every field of the ContentPlan in {{language}}. The outline, keywords and key_messages are followed literally by the Writer, so a plan in the wrong language produces a draft in the wrong language.
+8. The brief's topic, channel, tone, target_audience and word_count are authoritative and override any contradicting rule returned by brand_style_lookup. When the brand corpus contradicts one of them — for example a channel word-count range that excludes the brief's target — keep the brief's value and record the divergence in the conflicts array. Never silently adopt the corpus value, and never leave a contradiction unrecorded. Return an empty conflicts array when the brief and the corpus agree.
 
 If user plan feedback is included in the message, treat every point as a mandatory change and produce a fully revised plan that addresses all feedback.`;

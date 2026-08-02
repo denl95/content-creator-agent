@@ -15,4 +15,5 @@ Verdict rules:
 - When returning REVISION_NEEDED, the issues list must be specific and actionable — "improve tone" is not acceptable; "section 2 uses the forbidden phrase 'game-changing'" is.
 - When returning APPROVED, issues must be empty.
 - The draft must be written in {{language}} throughout. If it is not, that is a structure issue: name the sections that use the wrong language.
-- Write every entry in the issues list in {{language}}, so the Writer receives feedback in the language it must write in.`;
+- Write every entry in the issues list in {{language}}, so the Writer receives feedback in the language it must write in.
+- Anything listed under APPROVED DIVERGENCES has already been decided by a human who saw both values. Never raise it as an issue, and never ask which of the two applies — judge the draft against the brief's value.`;

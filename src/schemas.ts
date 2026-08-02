@@ -34,6 +34,17 @@ export const ContentPlanSchema = z.object({
   tone: z
     .string()
     .describe('Tone of voice to apply throughout — must align with brand style guide'),
+  conflicts: z
+    .array(
+      z.object({
+        dimension: z.string().describe("Brief field that diverges, e.g. 'word_count' or 'tone'"),
+        brief_value: z.string().describe("The brief's value, which is authoritative"),
+        corpus_value: z.string().describe('The contradicting rule from the brand corpus'),
+      }),
+    )
+    .describe(
+      'Divergences between the brief and the retrieved brand-corpus rules. Return an empty array when there are none.',
+    ),
 });
 
 export const DraftContentSchema = z.object({

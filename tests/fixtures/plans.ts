@@ -22,4 +22,5 @@ export const writerFixturePlan: ContentPlan = {
   ],
   target_audience: 'SMB owners with 5–50 employees',
   tone: 'professional',
+  conflicts: [],
 };

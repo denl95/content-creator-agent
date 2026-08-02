@@ -17,6 +17,7 @@ const plan: ContentPlan = {
   key_messages: ['AI is accessible'],
   target_audience: 'SMB owners',
   tone: 'professional',
+  conflicts: [],
 };
 
 describe('writerVariables', () => {
@@ -74,5 +75,30 @@ describe('language', () => {
       language: 'en',
     });
     expect(parsed.language).toBe('en');
+  });
+});
+
+describe('approved_conflicts', () => {
+  test('reads as agreement when the plan records no conflicts', () => {
+    const vars = editorVariables(plan, brief, 'draft', 'BRAND RULES');
+    expect(vars.approved_conflicts).toBe('None — the brief and the brand corpus agree.');
+  });
+
+  test('renders each conflict with the brief value marked authoritative', () => {
+    const conflicted: ContentPlan = {
+      ...plan,
+      conflicts: [
+        {
+          dimension: 'word_count',
+          brief_value: '300',
+          corpus_value: '800–1200 for LinkedIn',
+        },
+      ],
+    };
+    const vars = editorVariables(conflicted, brief, 'draft', 'BRAND RULES');
+    expect(vars.approved_conflicts).toContain('word_count');
+    expect(vars.approved_conflicts).toContain('300');
+    expect(vars.approved_conflicts).toContain('800–1200 for LinkedIn');
+    expect(vars.approved_conflicts).toContain('authoritative');
   });
 });
