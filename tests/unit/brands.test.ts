@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
   createBrand,
+  getBrand,
   getBrandCorpus,
   getDefaultBrand,
   listBrands,
@@ -153,5 +154,75 @@ describe('brand endpoints', () => {
     await freshDb();
     const { app } = await import('../../src/server');
     expect((await app.request('/brands/nope')).status).toBe(404);
+  });
+});
+
+describe('ingestion endpoints', () => {
+  test('POST /brands rejects a body with no sources', async () => {
+    await freshDb();
+    const { app } = await import('../../src/server');
+    const res = await app.request('/brands', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Acme', sources: [] }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test('POST /brands rejects a website source that is not an http URL', async () => {
+    await freshDb();
+    const { app } = await import('../../src/server');
+    const res = await app.request('/brands', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Acme', sources: [{ kind: 'website', locator: 'not-a-url' }] }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test('DELETE /brands/:id refuses to remove the default brand', async () => {
+    await freshDb();
+    const brand = await createBrand({
+      name: 'Only',
+      slug: 'only',
+      language: 'uk',
+      status: 'active',
+    });
+    await setDefaultBrand(brand.id);
+    const { app } = await import('../../src/server');
+    expect((await app.request(`/brands/${brand.id}`, { method: 'DELETE' })).status).toBe(409);
+  });
+
+  test('DELETE /brands/:id removes a non-default brand', async () => {
+    await freshDb();
+    const keep = await createBrand({
+      name: 'Keep',
+      slug: 'keep',
+      language: 'uk',
+      status: 'active',
+    });
+    await setDefaultBrand(keep.id);
+    const gone = await createBrand({
+      name: 'Gone',
+      slug: 'gone',
+      language: 'en',
+      status: 'active',
+    });
+    const { app } = await import('../../src/server');
+    expect((await app.request(`/brands/${gone.id}`, { method: 'DELETE' })).status).toBe(200);
+    expect(await getBrand(gone.id)).toBeNull();
+  });
+
+  test('reingest 409s when the brand has no recorded sources', async () => {
+    await freshDb();
+    const brand = await createBrand({
+      name: 'Bare',
+      slug: 'bare',
+      language: 'uk',
+      status: 'active',
+    });
+    const { app } = await import('../../src/server');
+    const res = await app.request(`/brands/${brand.id}/reingest`, { method: 'POST' });
+    expect(res.status).toBe(409);
   });
 });

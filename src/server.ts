@@ -10,14 +10,25 @@ import {
   verifyPassword,
   verifySessionCookie,
 } from './auth';
-import { getBrand, listBrands, setDefaultBrand, updateBrand } from './brands';
-import { getDraft, getStats, listDrafts, setDraftNotionUrl } from './db';
+import { createBrand, getBrand, listBrands, setDefaultBrand, updateBrand } from './brands';
+import { getDb, getDraft, getStats, listDrafts, setDraftNotionUrl } from './db';
 import { publishDraft } from './mcp/notion';
-import { getRun, isTerminal, resumeRun, startRun, subscribe, sweepStaleRuns } from './runManager';
+import {
+  getRun,
+  isTerminal,
+  resumeRun,
+  startIngest,
+  startRun,
+  subscribe,
+  sweepStaleRuns,
+} from './runManager';
 import { BriefSchema } from './schemas';
 
+// `edits` is only sent by the brand-review gate, which lets a reviewer correct
+// the distilled guide in place instead of rejecting it outright. The plan gate
+// never sends it, and both share this schema because both resume the same way.
 const ResumeSchema = z.union([
-  z.object({ approved: z.literal(true) }),
+  z.object({ approved: z.literal(true), edits: z.record(z.unknown()).optional() }),
   z.object({ approved: z.literal(false), feedback: z.string().min(1) }),
 ]);
 
@@ -138,7 +149,12 @@ app.get('/brands', async (c) => c.json(await listBrands()));
 app.get('/brands/:id', async (c) => {
   const brand = await getBrand(c.req.param('id'));
   if (!brand) return c.json({ error: 'brand not found' }, 404);
-  return c.json(brand);
+  const documents = await getDb().brandDocument.findMany({
+    where: { brandId: brand.id },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, kind: true, title: true, content: true, included: true },
+  });
+  return c.json({ ...brand, documents });
 });
 
 const BrandPatchSchema = z.object({
@@ -222,6 +238,84 @@ app.get('/runs/:id/events', (c) => {
   // responses regardless of Cache-Control.
   res.headers.set('X-Accel-Buffering', 'no');
   return res;
+});
+
+const SourceSpecSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('website'), locator: z.string().url() }),
+  z.object({ kind: z.literal('rss'), locator: z.string().url() }),
+  z.object({
+    kind: z.literal('paste'),
+    locator: z.string().default('pasted'),
+    body: z.string().min(1),
+  }),
+]);
+
+const CreateBrandSchema = z.object({
+  name: z.string().min(1),
+  sources: z.array(SourceSpecSchema).min(1),
+});
+
+/** Slugs key the vector collection, so they must be unique and Chroma-safe. */
+async function uniqueSlug(name: string): Promise<string> {
+  const base =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40) || 'brand';
+  const existing = new Set((await listBrands()).map((b) => b.slug));
+  if (!existing.has(base)) return base;
+  for (let i = 2; ; i++) {
+    if (!existing.has(`${base}-${i}`)) return `${base}-${i}`;
+  }
+}
+
+app.post('/brands', async (c) => {
+  sweepStaleRuns();
+  const parsed = CreateBrandSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+
+  const brand = await createBrand({
+    name: parsed.data.name,
+    slug: await uniqueSlug(parsed.data.name),
+    // Replaced by the distiller's detected language when the indexer runs.
+    language: 'en',
+    status: 'draft',
+  });
+  const threadId = startIngest({ brandId: brand.id, sources: parsed.data.sources });
+  return c.json({ brand_id: brand.id, thread_id: threadId }, 201);
+});
+
+app.post('/brands/:id/reingest', async (c) => {
+  const brand = await getBrand(c.req.param('id'));
+  if (!brand) return c.json({ error: 'brand not found' }, 404);
+  const sources = await getDb().brandSource.findMany({ where: { brandId: brand.id } });
+  if (sources.length === 0) {
+    return c.json({ error: 'this brand has no stored sources to re-ingest' }, 409);
+  }
+  const threadId = startIngest({
+    brandId: brand.id,
+    sources: sources.map((s) =>
+      s.kind === 'paste'
+        ? { kind: 'paste' as const, locator: s.locator, body: '' }
+        : { kind: s.kind as 'website' | 'rss', locator: s.locator },
+    ),
+  });
+  return c.json({ brand_id: brand.id, thread_id: threadId }, 201);
+});
+
+app.delete('/brands/:id', async (c) => {
+  const brand = await getBrand(c.req.param('id'));
+  if (!brand) return c.json({ error: 'brand not found' }, 404);
+  if (brand.is_default) {
+    return c.json(
+      { error: 'cannot delete the default brand — make another brand default first' },
+      409,
+    );
+  }
+  // Sources and documents cascade; drafts keep their history with a null FK.
+  await getDb().brand.delete({ where: { id: brand.id } });
+  return c.json({ deleted: true });
 });
 
 app.get('/drafts', async (c) => c.json(await listDrafts()));

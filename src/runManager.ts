@@ -218,7 +218,7 @@ export function sweepStaleRuns(now = Date.now()): number {
 
 export function resumeRun(
   threadId: string,
-  decision: { approved: boolean; feedback?: string },
+  decision: { approved: boolean; feedback?: string; edits?: Record<string, unknown> },
 ): ResumeResult {
   const run = runs.get(threadId);
   if (!run) return { resumed: false, status: null };
