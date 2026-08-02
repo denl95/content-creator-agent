@@ -1,6 +1,7 @@
 import { type ChatPromptClient, LangfuseClient } from '@langfuse/client';
 import type { Brief, ContentPlan, DraftContent, EditFeedback } from '../schemas';
 import { countWords } from '../utils/text';
+import { DISTILLER_SYSTEM } from './distiller';
 import { EDITOR_SYSTEM } from './editor';
 import { STRATEGIST_SYSTEM } from './strategist';
 import { WRITER_SYSTEM } from './writer';
@@ -10,7 +11,7 @@ export type ChatPromptMessage = {
   content: string;
 };
 
-export type PromptKey = 'strategist' | 'writer' | 'editor';
+export type PromptKey = 'strategist' | 'writer' | 'editor' | 'distiller';
 
 export type ManagedPromptSpec = {
   key: PromptKey;
@@ -149,6 +150,19 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
           '--- DRAFT ---',
           '{{draft_content}}',
         ].join('\n'),
+      },
+    ],
+  },
+  distiller: {
+    key: 'distiller',
+    source: 'src/prompts/distiller.ts',
+    tags: [...commonTags, 'distiller'],
+    placeholders: ['corpus', 'revision_feedback'],
+    fallback: [
+      { role: 'system', content: DISTILLER_SYSTEM },
+      {
+        role: 'user',
+        content: ['--- CORPUS ---', '{{corpus}}', '', '{{revision_feedback}}'].join('\n'),
       },
     ],
   },
@@ -325,5 +339,15 @@ export function editorVariables(
     approved_conflicts: formatConflicts(plan.conflicts),
     brand_style: brandStyle,
     draft_content: draftContent,
+  };
+}
+
+export function distillerVariables(
+  corpus: string,
+  feedback?: string | null,
+): Record<string, string> {
+  return {
+    corpus,
+    revision_feedback: feedback ? `--- REVISION FEEDBACK (mandatory) ---\n${feedback}` : '',
   };
 }
