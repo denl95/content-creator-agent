@@ -78,7 +78,12 @@ async function main(): Promise<void> {
   for (const prompt of prompts) {
     process.stdout.write(`  ${prompt.name}... `);
     try {
-      const current = await langfuse.api.prompts.get(encodeURIComponent(prompt.name), {
+      // Not encodeURIComponent: prompt names contain a slash
+      // (`content-creator-agent/strategist`), and percent-encoding it makes the
+      // API 404. That 404 was caught below as "does not exist yet", so every
+      // run created a new version of every prompt whether or not anything had
+      // changed — the unchanged check never once fired.
+      const current = await langfuse.api.prompts.get(prompt.name, {
         label: LANGFUSE_PROMPT_LABEL,
       });
       if (samePrompt(current, prompt)) {
