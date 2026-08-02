@@ -15,7 +15,7 @@
     "web": "cd web && bun run dev --port ${NEXT_PORT:-3001}",
     "dev:all": "bun run serve & bun run web",
     "test:unit": "bun test tests/unit",
-    "test:judge": "DRAFTS_DB_PATH=:memory: MAX_ITERATIONS=2 MAX_SEARCHES=3 bun test tests/judge",
+    "test:judge": "DATABASE_URL=:memory: MAX_ITERATIONS=2 MAX_SEARCHES=3 bun test tests/judge",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:status": "prisma migrate status",
