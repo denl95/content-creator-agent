@@ -214,7 +214,7 @@ export async function main(): Promise<void> {
     const finalContent = finalState.values.finalContent as string | null;
     const notionUrl = finalState.values.notionUrl as string | null;
 
-    setDraftCost(threadId, tracker.costUsd());
+    await setDraftCost(threadId, tracker.costUsd());
 
     if (finalContent) {
       console.log(`\n✓ Done! Draft saved (id: ${threadId})`);

@@ -1,6 +1,5 @@
-import { Database } from 'bun:sqlite';
-import { mkdirSync } from 'node:fs';
-import path from 'node:path';
+import { PrismaLibSql } from '@prisma/adapter-libsql';
+import { PrismaClient } from './generated/prisma/client';
 
 export type DraftRow = {
   id: string;
@@ -25,79 +24,110 @@ export type NewDraft = Omit<DraftRow, 'issues' | 'cost_usd' | 'notion_url' | 'cr
   issues: string[];
 };
 
-let db: Database | null = null;
+let client: PrismaClient | null = null;
 
-export function getDb(dbPath = process.env.DRAFTS_DB_PATH ?? 'data/app.db'): Database {
-  if (db) return db;
-  if (dbPath !== ':memory:') mkdirSync(path.dirname(dbPath), { recursive: true });
-  db = new Database(dbPath, { create: true });
-  db.run(`CREATE TABLE IF NOT EXISTS drafts (
-    id TEXT PRIMARY KEY,
-    topic TEXT NOT NULL,
-    channel TEXT NOT NULL,
-    tone TEXT NOT NULL,
-    audience TEXT NOT NULL,
-    content TEXT NOT NULL,
-    word_count INTEGER NOT NULL,
-    verdict TEXT,
-    tone_score REAL,
-    accuracy_score REAL,
-    structure_score REAL,
-    iterations INTEGER NOT NULL DEFAULT 0,
-    issues TEXT NOT NULL DEFAULT '[]',
-    cost_usd REAL,
-    notion_url TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )`);
-  return db;
+/**
+ * The process-wide Prisma client. Prisma 7 takes its connection through a
+ * driver adapter rather than the schema's datasource block, so the URL is
+ * applied here rather than by `prisma generate`.
+ */
+export function getDb(url = process.env.DATABASE_URL ?? 'file:./data/app.db'): PrismaClient {
+  if (client) return client;
+  client = new PrismaClient({ adapter: new PrismaLibSql({ url }) });
+  return client;
 }
 
-export function resetDbForTests(): void {
-  db?.close();
-  db = null;
+export async function resetDbForTests(): Promise<void> {
+  await client?.$disconnect();
+  client = null;
 }
 
-export function insertDraft(draft: NewDraft): void {
-  getDb()
-    .query(
-      `INSERT INTO drafts
-        (id, topic, channel, tone, audience, content, word_count,
-         verdict, tone_score, accuracy_score, structure_score, iterations, issues)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      draft.id,
-      draft.topic,
-      draft.channel,
-      draft.tone,
-      draft.audience,
-      draft.content,
-      draft.word_count,
-      draft.verdict,
-      draft.tone_score,
-      draft.accuracy_score,
-      draft.structure_score,
-      draft.iterations,
-      JSON.stringify(draft.issues),
-    );
+type PrismaDraft = {
+  id: string;
+  topic: string;
+  channel: string;
+  tone: string;
+  audience: string;
+  content: string;
+  wordCount: number;
+  verdict: string | null;
+  toneScore: number | null;
+  accuracyScore: number | null;
+  structureScore: number | null;
+  iterations: number;
+  issues: string;
+  costUsd: number | null;
+  notionUrl: string | null;
+  createdAt: Date;
+};
+
+/**
+ * Prisma returns camelCase and real Date objects; the HTTP API has always
+ * emitted snake_case with SQLite's 'YYYY-MM-DD HH:MM:SS' strings, and
+ * `web/lib/types.ts` mirrors that shape by hand. This is the only place the two
+ * conventions meet — renaming a key here silently breaks the dashboard.
+ */
+function toDraftRow(d: PrismaDraft): DraftRow {
+  return {
+    id: d.id,
+    topic: d.topic,
+    channel: d.channel,
+    tone: d.tone,
+    audience: d.audience,
+    content: d.content,
+    word_count: d.wordCount,
+    verdict: d.verdict,
+    tone_score: d.toneScore,
+    accuracy_score: d.accuracyScore,
+    structure_score: d.structureScore,
+    iterations: d.iterations,
+    issues: d.issues,
+    cost_usd: d.costUsd,
+    notion_url: d.notionUrl,
+    created_at: d.createdAt.toISOString().replace('T', ' ').slice(0, 19),
+  };
 }
 
-export function listDrafts(): DraftRow[] {
-  return getDb()
-    .query('SELECT * FROM drafts ORDER BY created_at DESC, id DESC')
-    .all() as DraftRow[];
+export async function insertDraft(draft: NewDraft): Promise<void> {
+  await getDb().draft.create({
+    data: {
+      id: draft.id,
+      topic: draft.topic,
+      channel: draft.channel,
+      tone: draft.tone,
+      audience: draft.audience,
+      content: draft.content,
+      wordCount: draft.word_count,
+      verdict: draft.verdict,
+      toneScore: draft.tone_score,
+      accuracyScore: draft.accuracy_score,
+      structureScore: draft.structure_score,
+      iterations: draft.iterations,
+      issues: JSON.stringify(draft.issues),
+    },
+  });
 }
 
-export function getDraft(id: string): DraftRow | null {
-  return (getDb().query('SELECT * FROM drafts WHERE id = ?').get(id) as DraftRow | null) ?? null;
+export async function listDrafts(): Promise<DraftRow[]> {
+  const rows = await getDb().draft.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+  return rows.map(toDraftRow);
 }
 
-export function setDraftNotionUrl(id: string, url: string): void {
-  getDb().query('UPDATE drafts SET notion_url = ? WHERE id = ?').run(url, id);
+export async function getDraft(id: string): Promise<DraftRow | null> {
+  const row = await getDb().draft.findUnique({ where: { id } });
+  return row ? toDraftRow(row) : null;
 }
 
-export function setDraftCost(id: string, costUsd: number): void {
-  getDb().query('UPDATE drafts SET cost_usd = ? WHERE id = ?').run(costUsd, id);
+// `updateMany`, not `update`: Prisma's `update` throws P2025 when no row
+// matches, whereas the hand-written `UPDATE ... WHERE id = ?` these replace was
+// a silent no-op. runManager calls setDraftCost after every run, so a missing
+// row must not turn a finished run into an errored one.
+export async function setDraftNotionUrl(id: string, url: string): Promise<void> {
+  await getDb().draft.updateMany({ where: { id }, data: { notionUrl: url } });
+}
+
+export async function setDraftCost(id: string, costUsd: number): Promise<void> {
+  await getDb().draft.updateMany({ where: { id }, data: { costUsd } });
 }
 
 export type Stats = {
@@ -111,61 +141,37 @@ export type Stats = {
   spendByDay: Array<{ day: string; costUsd: number }>;
 };
 
-type TotalsRow = {
-  totalDrafts: number;
-  approvedCount: number;
-  totalCostUsd: number;
-  avgIterations: number;
-  avgTone: number;
-  avgAccuracy: number;
-  avgStructure: number;
-};
-
-export function getStats(): Stats {
-  const database = getDb();
-
-  const totals = database
-    .query(
-      `SELECT
-         COUNT(*) AS totalDrafts,
-         COALESCE(SUM(CASE WHEN verdict = 'APPROVED' THEN 1 ELSE 0 END), 0) AS approvedCount,
-         COALESCE(SUM(cost_usd), 0) AS totalCostUsd,
-         COALESCE(AVG(iterations), 0) AS avgIterations,
-         COALESCE(AVG(tone_score), 0) AS avgTone,
-         COALESCE(AVG(accuracy_score), 0) AS avgAccuracy,
-         COALESCE(AVG(structure_score), 0) AS avgStructure
-       FROM drafts`,
-    )
-    .get() as TotalsRow;
-
-  const byChannel = database
-    .query(
-      `SELECT channel, COUNT(*) AS count
-       FROM drafts
-       GROUP BY channel
-       ORDER BY count DESC, channel ASC`,
-    )
-    .all() as Array<{ channel: string; count: number }>;
-
-  const spendByDay = database
-    .query(
+export async function getStats(): Promise<Stats> {
+  const db = getDb();
+  const [totalDrafts, approvedCount, agg, byChannelRaw, spendByDay] = await Promise.all([
+    db.draft.count(),
+    db.draft.count({ where: { verdict: 'APPROVED' } }),
+    db.draft.aggregate({
+      _sum: { costUsd: true },
+      _avg: { iterations: true, toneScore: true, accuracyScore: true, structureScore: true },
+    }),
+    db.draft.groupBy({ by: ['channel'], _count: { _all: true } }),
+    // date() grouping has no Prisma equivalent, so this stays raw SQL.
+    db.$queryRawUnsafe<Array<{ day: string; costUsd: number }>>(
       `SELECT date(created_at) AS day, COALESCE(SUM(cost_usd), 0) AS costUsd
-       FROM drafts
-       GROUP BY day
-       ORDER BY day ASC`,
-    )
-    .all() as Array<{ day: string; costUsd: number }>;
+       FROM drafts GROUP BY day ORDER BY day ASC`,
+    ),
+  ]);
+
+  const byChannel = byChannelRaw
+    .map((r) => ({ channel: r.channel, count: r._count._all }))
+    .sort((a, b) => b.count - a.count || a.channel.localeCompare(b.channel));
 
   return {
-    totalDrafts: totals.totalDrafts,
-    approvedCount: totals.approvedCount,
-    approvalRate: totals.totalDrafts === 0 ? 0 : totals.approvedCount / totals.totalDrafts,
-    totalCostUsd: totals.totalCostUsd,
-    avgIterations: totals.avgIterations,
+    totalDrafts,
+    approvedCount,
+    approvalRate: totalDrafts === 0 ? 0 : approvedCount / totalDrafts,
+    totalCostUsd: agg._sum.costUsd ?? 0,
+    avgIterations: agg._avg.iterations ?? 0,
     avgScores: {
-      tone: totals.avgTone,
-      accuracy: totals.avgAccuracy,
-      structure: totals.avgStructure,
+      tone: agg._avg.toneScore ?? 0,
+      accuracy: agg._avg.accuracyScore ?? 0,
+      structure: agg._avg.structureScore ?? 0,
     },
     byChannel,
     spendByDay,

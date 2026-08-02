@@ -25,7 +25,7 @@ export async function finalizer(
   const threadId = (config?.configurable?.thread_id as string | undefined) ?? crypto.randomUUID();
   const fb = state.editFeedback;
 
-  insertDraft({
+  await insertDraft({
     id: threadId,
     topic: state.brief?.topic ?? 'untitled',
     channel: state.brief?.channel ?? 'blog',

@@ -184,18 +184,18 @@ app.get('/runs/:id/events', (c) => {
   return res;
 });
 
-app.get('/drafts', (c) => c.json(listDrafts()));
+app.get('/drafts', async (c) => c.json(await listDrafts()));
 
-app.get('/stats', (c) => c.json(getStats()));
+app.get('/stats', async (c) => c.json(await getStats()));
 
-app.get('/drafts/:id', (c) => {
-  const draft = getDraft(c.req.param('id'));
+app.get('/drafts/:id', async (c) => {
+  const draft = await getDraft(c.req.param('id'));
   if (!draft) return c.json({ error: 'draft not found' }, 404);
   return c.json(draft);
 });
 
 app.post('/drafts/:id/publish', async (c) => {
-  const draft = getDraft(c.req.param('id'));
+  const draft = await getDraft(c.req.param('id'));
   if (!draft) return c.json({ error: 'draft not found' }, 404);
   const databaseId = process.env.NOTION_DRAFTS_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_TOKEN) {
@@ -213,7 +213,7 @@ app.post('/drafts/:id/publish', async (c) => {
       wordCount: draft.word_count,
       status: draft.verdict === 'APPROVED' ? 'Approved' : 'Unapproved',
     });
-    setDraftNotionUrl(draft.id, page.url);
+    await setDraftNotionUrl(draft.id, page.url);
     return c.json({ url: page.url });
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : String(err) }, 502);
