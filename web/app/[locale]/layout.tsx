@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { JetBrains_Mono, Montserrat } from 'next/font/google';
 import { notFound } from 'next/navigation';
-import { getMessages, isLocale, LOCALES } from '@/i18n/index';
+import { isLocale, LOCALES } from '@/i18n/index';
 import { MessagesProvider } from '@/i18n/provider';
 import '../globals.css';
 
@@ -69,9 +69,7 @@ export default async function LocaleLayout({
         className="flex min-h-full flex-col bg-background text-foreground"
         style={{ fontFamily: 'var(--font-montserrat), system-ui, sans-serif' }}
       >
-        <MessagesProvider locale={locale} messages={getMessages(locale)}>
-          {children}
-        </MessagesProvider>
+        <MessagesProvider locale={locale}>{children}</MessagesProvider>
       </body>
     </html>
   );

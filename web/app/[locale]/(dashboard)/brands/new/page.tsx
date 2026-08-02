@@ -7,6 +7,7 @@ import { BrandReview } from '@/components/brand-review';
 import { PipelineProgress } from '@/components/pipeline-progress';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useLocale, useMessages } from '@/i18n/provider';
 import {
   type BrandProfilePayload,
   INGEST_NODES,
@@ -26,6 +27,8 @@ type ReviewPayload = {
 
 export default function NewBrandPage() {
   const router = useRouter();
+  const m = useMessages();
+  const locale = useLocale();
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState<Set<string>>(new Set());
   const [active, setActive] = useState<string | null>(null);
@@ -68,7 +71,7 @@ export default function NewBrandPage() {
     if (event.node === 'done') {
       setRunning(false);
       source.current?.close();
-      if (brandIdRef.current) router.push(`/brands/${brandIdRef.current}`);
+      if (brandIdRef.current) router.push(`/${locale}/brands/${brandIdRef.current}`);
     }
     if (event.node === 'error') {
       setError(event.data.message ?? 'Ingestion failed');
@@ -102,7 +105,7 @@ export default function NewBrandPage() {
     if (rss) sources.push({ kind: 'rss', locator: rss });
     if (pasted) sources.push({ kind: 'paste', locator: 'pasted', body: pasted });
     if (sources.length === 0) {
-      setError('Give at least one source: a website, a feed, or pasted posts.');
+      setError(m.brands.needSource);
       return;
     }
 
@@ -156,17 +159,17 @@ export default function NewBrandPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">New brand</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{m.brands.newBrand}</h1>
 
       <Card>
         <CardContent className="p-6">
           <form onSubmit={submit} className="grid gap-4">
             <label className={LABEL}>
-              Name
+              {m.common.name}
               <input name="name" required defaultValue="EONYX" className={FIELD} />
             </label>
             <label className={LABEL}>
-              Website URL
+              {m.brands.websiteUrl}
               <input
                 name="website"
                 placeholder="https://eonyx.net/uk"
@@ -174,29 +177,27 @@ export default function NewBrandPage() {
                 className={FIELD}
               />
               <span className="text-xs text-muted-foreground">
-                The path scopes the crawl: /uk stays inside that section, so a bilingual site does
-                not produce a mixed-language corpus.
+                {m.brands.websiteHint}
               </span>
             </label>
             <label className={LABEL}>
-              RSS or Atom feed (optional)
+              {m.brands.feed}
               <input name="rss" placeholder="https://example.com/feed.xml" className={FIELD} />
             </label>
             <label className={LABEL}>
-              Pasted posts (optional)
+              {m.brands.pasted}
               <textarea
                 name="pasted"
                 placeholder={'Post one\n---\nPost two'}
                 className={`${FIELD} min-h-32`}
               />
               <span className="text-xs text-muted-foreground">
-                Separate posts with a line of three dashes. Real published copy is far better voice
-                evidence than a landing page.
+                {m.brands.pastedHint}
               </span>
             </label>
             <div>
               <Button type="submit" disabled={running}>
-                {running ? 'Ingesting…' : 'Ingest brand'}
+                {running ? m.brands.ingesting : m.brands.ingest}
               </Button>
             </div>
           </form>

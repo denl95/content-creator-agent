@@ -8,6 +8,7 @@ import { PipelineProgress } from '@/components/pipeline-progress';
 import { PlanApproval } from '@/components/plan-approval';
 import { RunError, type RunFailure } from '@/components/run-error';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useLocale, useMessages } from '@/i18n/provider';
 import { errorMessage } from '@/lib/errors';
 import { formatElapsed, formatUsd } from '@/lib/format';
 import { type Brand, type ContentPlan, type EditFeedback, NODES, type RunEvent } from '@/lib/types';
@@ -102,6 +103,8 @@ export default function RunPage() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   // null until the request settles, so the form can tell loading from empty.
   const [brands, setBrands] = useState<Brand[] | null>(null);
+  const m = useMessages();
+  const locale = useLocale();
 
   // The API sorts the default brand first, so the initial option is correct
   // without the client tracking a default of its own.
@@ -313,7 +316,7 @@ export default function RunPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">New run</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{m.run.title}</h1>
 
       <BriefForm running={running} brands={brands} onSubmit={start} />
 
@@ -325,16 +328,22 @@ export default function RunPage() {
             activity log below carries role="log" instead. */}
         {running || activity.length > 0 ? (
           <p className="eonyx-label flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="tabular-nums">{formatElapsed(elapsed)} elapsed</span>
+            <span className="tabular-nums">
+              {formatElapsed(elapsed)} {m.run.elapsed}
+            </span>
             {latest ? (
               <>
                 <span aria-hidden>·</span>
-                <span className="tabular-nums">{(latest.tokens ?? 0).toLocaleString()} tokens</span>
+                <span className="tabular-nums">
+                  {(latest.tokens ?? 0).toLocaleString()} {m.run.tokens}
+                </span>
                 <span aria-hidden>·</span>
-                <span className="tabular-nums">{formatUsd(latest.costUsd ?? 0)}</span>
+                <span className="tabular-nums">{formatUsd(latest.costUsd ?? 0, locale)}</span>
               </>
             ) : null}
-            {reconnecting ? <span className="text-state-revision">· reconnecting…</span> : null}
+            {reconnecting ? (
+              <span className="text-state-revision">· {m.run.reconnecting}</span>
+            ) : null}
           </p>
         ) : null}
 
@@ -343,8 +352,12 @@ export default function RunPage() {
 
       {feedback ? (
         <p className="text-sm text-muted-foreground">
-          editor: {feedback.verdict} · tone {feedback.tone_score} · accuracy{' '}
-          {feedback.accuracy_score} · structure {feedback.structure_score}
+          {m.run.editorLine({
+            verdict: feedback.verdict,
+            tone: feedback.tone_score,
+            accuracy: feedback.accuracy_score,
+            structure: feedback.structure_score,
+          })}
         </p>
       ) : null}
 
@@ -367,15 +380,18 @@ export default function RunPage() {
       {result && threadId ? (
         <Card>
           <CardHeader>
-            <CardTitle>Done</CardTitle>
+            <CardTitle>{m.run.done}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              {formatUsd(result.costUsd)} · {result.tokens.toLocaleString()} tokens ·{' '}
-              {formatElapsed(elapsed)}
+              {m.run.result({
+                cost: formatUsd(result.costUsd, locale),
+                tokens: result.tokens,
+              })}{' '}
+              · {formatElapsed(elapsed)}
             </p>
-            <Link href={`/drafts/${threadId}`} className="text-sm underline">
-              Open the finished draft →
+            <Link href={`/${locale}/drafts/${threadId}`} className="text-sm underline">
+              {m.run.openDraft}
             </Link>
           </CardContent>
         </Card>

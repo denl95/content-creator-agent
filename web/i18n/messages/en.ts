@@ -78,6 +78,8 @@ const en = {
     brandsUnavailable: 'Could not load brands. Every run needs one — check you are signed in, or',
     brandsUnavailableCta: 'ingest a brand',
     noBrands: 'No brands available',
+    elapsed: 'elapsed',
+    tokens: 'tokens',
     reconnect: 'Reconnect',
     reconnecting: 'Reconnecting…',
   },
@@ -136,8 +138,10 @@ const en = {
 
   login: {
     title: 'Sign in',
+    intro: 'Enter the demo password to continue.',
     password: 'Password',
-    submit: 'Sign in',
+    checking: 'Checking…',
+    submit: 'Enter',
     failed: 'Wrong password.',
   },
 

@@ -1,37 +1,38 @@
 'use client';
 
 import { createContext, useContext } from 'react';
-import type { Locale, Messages } from './index';
-
-const MessagesContext = createContext<{ locale: Locale; messages: Messages } | null>(null);
+import { getMessages, type Locale, type Messages } from './index';
 
 /**
- * Client Components read messages from context rather than props. The run
- * screen alone would otherwise thread them through three levels, and every
- * intermediate component would grow a prop it does not use.
+ * Only the locale crosses the Server→Client boundary — never the catalogue.
+ *
+ * Passing `messages` as a prop looked natural and fails the build: some entries
+ * are functions, and React cannot serialise a function into a Client Component
+ * ("Functions cannot be passed directly to Client Components"). Since the
+ * catalogues are static modules, the client imports them itself and the only
+ * thing that has to travel is a two-character string.
+ *
+ * The cost is that both catalogues are in the client bundle. At roughly 150
+ * short strings that is negligible, and it makes switching locale instant.
  */
+const LocaleContext = createContext<Locale | null>(null);
+
 export function MessagesProvider({
   locale,
-  messages,
   children,
 }: {
   locale: Locale;
-  messages: Messages;
   children: React.ReactNode;
 }) {
-  return (
-    <MessagesContext.Provider value={{ locale, messages }}>{children}</MessagesContext.Provider>
-  );
-}
-
-export function useMessages(): Messages {
-  const value = useContext(MessagesContext);
-  if (!value) throw new Error('useMessages must be used inside MessagesProvider');
-  return value.messages;
+  return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;
 }
 
 export function useLocale(): Locale {
-  const value = useContext(MessagesContext);
-  if (!value) throw new Error('useLocale must be used inside MessagesProvider');
-  return value.locale;
+  const locale = useContext(LocaleContext);
+  if (!locale) throw new Error('useLocale must be used inside MessagesProvider');
+  return locale;
+}
+
+export function useMessages(): Messages {
+  return getMessages(useLocale());
 }
