@@ -3,6 +3,7 @@
 import type { FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useMessages } from '@/i18n/provider';
 import type { Brand } from '@/lib/types';
 
 const CHANNELS = ['blog', 'linkedin', 'twitter', 'instagram', 'threads'];
@@ -35,12 +36,13 @@ export function BriefForm({
   brands: Brand[] | null;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const m = useMessages();
   return (
     <Card>
       <CardContent className="p-6">
         <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
           <label className={LABEL}>
-            Topic
+            {m.common.topic}
             <input
               name="topic"
               required
@@ -49,7 +51,7 @@ export function BriefForm({
             />
           </label>
           <label className={LABEL}>
-            Channel
+            {m.common.channel}
             <select name="channel" className={FIELD}>
               {CHANNELS.map((channel) => (
                 <option key={channel} value={channel}>
@@ -59,11 +61,11 @@ export function BriefForm({
             </select>
           </label>
           <label className={LABEL}>
-            Tone
+            {m.common.tone}
             <input name="tone" required defaultValue="доступний" className={FIELD} />
           </label>
           <label className={LABEL}>
-            Audience
+            {m.common.audience}
             <input
               name="target_audience"
               required
@@ -72,11 +74,11 @@ export function BriefForm({
             />
           </label>
           <label className={LABEL}>
-            Word count
+            {m.common.wordCount}
             <input name="word_count" type="number" required defaultValue={800} className={FIELD} />
           </label>
           <label className={LABEL}>
-            Brand
+            {m.common.brand}
             <select
               name="brand_id"
               className={FIELD}
@@ -84,9 +86,9 @@ export function BriefForm({
               required
             >
               {brands === null ? (
-                <option value="">Loading…</option>
+                <option value="">{m.common.loading}</option>
               ) : brands.length === 0 ? (
-                <option value="">No brands available</option>
+                <option value="">{m.run.noBrands}</option>
               ) : (
                 brands.map((brand) => (
                   <option key={brand.id} value={brand.id}>
@@ -98,16 +100,16 @@ export function BriefForm({
             </select>
             {brands?.length === 0 ? (
               <span className="text-xs text-red-600">
-                Could not load brands. Every run needs one — check you are signed in, or{' '}
-                <a href="/brands/new" className="underline">
-                  ingest a brand
+                {m.run.brandsUnavailable}{' '}
+                <a href="brands/new" className="underline">
+                  {m.run.brandsUnavailableCta}
                 </a>
                 .
               </span>
             ) : null}
           </label>
           <label className={LABEL}>
-            Language
+            {m.common.language}
             <select name="language" className={FIELD}>
               {LANGUAGES.map((language) => (
                 <option key={language.value} value={language.value}>
@@ -118,7 +120,7 @@ export function BriefForm({
           </label>
           <div className="flex items-end">
             <Button type="submit" disabled={running} className="w-full">
-              {running ? 'Running…' : 'Generate'}
+              {running ? m.run.running : m.run.generate}
             </Button>
           </div>
         </form>

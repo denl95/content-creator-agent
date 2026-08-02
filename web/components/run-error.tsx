@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { useMessages } from '@/i18n/provider';
 
 /**
  * A run failure worth showing.
@@ -12,6 +13,7 @@ import { Button } from '@/components/ui/button';
 export type RunFailure = { title: string; message: string; retry?: boolean };
 
 export function RunError({ failure, onRetry }: { failure: RunFailure; onRetry?: () => void }) {
+  const m = useMessages();
   return (
     <div
       role="alert"
@@ -21,7 +23,7 @@ export function RunError({ failure, onRetry }: { failure: RunFailure; onRetry?: 
       <p className="mt-1 text-sm">{failure.message}</p>
       {failure.retry && onRetry ? (
         <Button variant="secondary" className="mt-3" onClick={onRetry}>
-          Try reconnecting
+          {m.run.reconnect}
         </Button>
       ) : null}
     </div>

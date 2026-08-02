@@ -113,6 +113,11 @@ const uk: Messages = {
     provenanceMany: 'сторінок збережено для довідки й свідомо не індексуються.',
   },
 
+  verdicts: {
+    APPROVED: 'Затверджено',
+    REVISION_NEEDED: 'Потребує правок',
+  },
+
   drafts: {
     title: 'Чернетки',
     empty: 'Чернеток ще немає.',

@@ -117,6 +117,11 @@ const en = {
     provenanceMany: 'source pages kept for reference and deliberately not embedded.',
   },
 
+  verdicts: {
+    APPROVED: 'Approved',
+    REVISION_NEEDED: 'Revision needed',
+  },
+
   drafts: {
     title: 'Drafts',
     empty: 'No drafts yet.',

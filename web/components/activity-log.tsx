@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, type UIEvent, useEffect, useRef } from 'react';
+import { useLocale } from '@/i18n/provider';
 import { formatClock } from '@/lib/format';
 import { isFailedKind, type RunActivity } from '@/lib/types';
 
@@ -13,6 +14,7 @@ const PIN_THRESHOLD = 48;
 // `entries` is unchanged — without this, every visible row is rebuilt and
 // re-formatted ~300 times over a five-minute run for no visible difference.
 export const ActivityLog = memo(function ActivityLog({ entries }: { entries: ActivityEntry[] }) {
+  const locale = useLocale();
   const listRef = useRef<HTMLDivElement | null>(null);
   // Whether the user is still reading the tail. Tracked on scroll rather than
   // measured inside the effect: by the time the effect runs the new row has
@@ -59,7 +61,7 @@ export const ActivityLog = memo(function ActivityLog({ entries }: { entries: Act
               key={entry.seq}
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 font-mono text-[11px]"
             >
-              <span className="tabular-nums text-muted-foreground">{formatClock(entry.ts)}</span>
+              <span className="tabular-nums text-muted-foreground">{formatClock(entry.ts, locale)}</span>
               <span className={`eonyx-label ${failed ? 'text-destructive' : 'text-brand'}`}>
                 {entry.kind.replace(/_/g, ' ')}
               </span>
