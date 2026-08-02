@@ -6,8 +6,18 @@ const DEFAULT_PRICED_MODEL = 'gpt-4o-mini';
 const DEFAULT_PRICE_INPUT_PER_1M = 0.15;
 const DEFAULT_PRICE_OUTPUT_PER_1M = 0.6;
 
-const PRICE_INPUT_PER_1M = Number(process.env.PRICE_INPUT_PER_1M ?? DEFAULT_PRICE_INPUT_PER_1M);
-const PRICE_OUTPUT_PER_1M = Number(process.env.PRICE_OUTPUT_PER_1M ?? DEFAULT_PRICE_OUTPUT_PER_1M);
+/**
+ * Read per call, not once at module load. Module-scope reads froze the rates at
+ * whichever import happened first — so a test suite that set PRICE_* saw them
+ * ignored if any other file had already pulled this module in, and a
+ * long-running process could not pick up a change at all.
+ */
+function rates(): { input: number; output: number } {
+  return {
+    input: Number(process.env.PRICE_INPUT_PER_1M ?? DEFAULT_PRICE_INPUT_PER_1M),
+    output: Number(process.env.PRICE_OUTPUT_PER_1M ?? DEFAULT_PRICE_OUTPUT_PER_1M),
+  };
+}
 
 /**
  * Every reported cost is a lie when the model is priced differently from the
@@ -72,9 +82,7 @@ export class CostTracker extends BaseCallbackHandler {
   }
 
   costUsd(): number {
-    return (
-      (this.inputTokens * PRICE_INPUT_PER_1M + this.outputTokens * PRICE_OUTPUT_PER_1M) / 1_000_000
-    );
+    return (this.inputTokens * rates().input + this.outputTokens * rates().output) / 1_000_000;
   }
 
   overBudget(): boolean {
