@@ -30,6 +30,9 @@ export const app = new Hono();
 // as `socket hang up` / ECONNRESET. Two independent guards:
 //   - a comment frame every SSE_KEEPALIVE_MS, so the connection is never idle;
 //   - a raised idleTimeout, so one slow write can't undo it. Bun caps this at 255.
+// idleTimeout is per-server, not per-route, so ordinary requests hold an idle
+// socket 12x longer too. That is the accepted cost of the second guard: this is
+// a single-machine API behind Fly's proxy, not a high-fanout public endpoint.
 export const SSE_POLL_MS = 1000;
 export const SSE_KEEPALIVE_MS = 5000;
 export const SERVER_IDLE_TIMEOUT_S = 120;
@@ -134,7 +137,14 @@ app.get('/runs/:id/events', (c) => {
   const id = c.req.param('id');
   const run = getRun(id);
   if (!run) return c.json({ error: 'run not found' }, 404);
-  return streamSSE(c, async (stream) => {
+  // `no-transform` is what stops an intermediary from gzipping this stream.
+  // Next's proxy compresses proxied responses when the client sends
+  // Accept-Encoding: gzip — every browser does, curl does not — and the gzip
+  // encoder buffers, so the browser held an open connection that delivered
+  // nothing until the run ended. Verified by reading `content-encoding: gzip`
+  // off the response in the page. Hono's streamSSE sets Cache-Control itself,
+  // so this has to be applied to the Response it returns.
+  const res = streamSSE(c, async (stream) => {
     for (const event of run.events) {
       await stream.writeSSE({ data: JSON.stringify(event) });
     }
@@ -155,6 +165,8 @@ app.get('/runs/:id/events', (c) => {
       unsubscribe?.();
     }
   });
+  res.headers.set('Cache-Control', 'no-cache, no-transform');
+  return res;
 });
 
 app.get('/drafts', (c) => c.json(listDrafts()));
