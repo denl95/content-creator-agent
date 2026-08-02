@@ -3,6 +3,7 @@
 import type { FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import type { Brand } from '@/lib/types';
 
 const CHANNELS = ['blog', 'linkedin', 'twitter', 'instagram', 'threads'];
 
@@ -22,9 +23,12 @@ const LABEL = 'flex flex-col gap-1 text-sm';
  */
 export function BriefForm({
   running,
+  brands,
   onSubmit,
 }: {
   running: boolean;
+  /** Default brand first, so the initial selection needs no extra logic. */
+  brands: Brand[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
@@ -66,6 +70,17 @@ export function BriefForm({
           <label className={LABEL}>
             Word count
             <input name="word_count" type="number" required defaultValue={800} className={FIELD} />
+          </label>
+          <label className={LABEL}>
+            Brand
+            <select name="brand_id" className={FIELD}>
+              {brands.map((brand) => (
+                <option key={brand.id} value={brand.id}>
+                  {brand.name}
+                  {brand.is_default ? ' (default)' : ''}
+                </option>
+              ))}
+            </select>
           </label>
           <label className={LABEL}>
             Language

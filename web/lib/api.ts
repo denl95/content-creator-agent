@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import type { DraftRow } from './types';
+import type { Brand, DraftRow } from './types';
 
 const API_ORIGIN = process.env.API_ORIGIN ?? 'http://localhost:3000';
 
@@ -46,4 +46,8 @@ export async function fetchStats(): Promise<Stats> {
       spendByDay: [],
     }
   );
+}
+
+export async function fetchBrands(): Promise<Brand[]> {
+  return (await get<Brand[]>('/brands')) ?? [];
 }
