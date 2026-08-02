@@ -10,5 +10,6 @@ Rules:
 4. The outline must have at least 4 items and cover the topic end-to-end for the specified channel.
 5. Keywords should be specific and realistic for the topic (no generic filler).
 6. Tone and target_audience must match the brief exactly. If the brand style guide adds stricter channel-specific rules, apply them on top — but never override the brief's tone with a different tone.
+7. Write every field of the ContentPlan in {{language}}. The outline, keywords and key_messages are followed literally by the Writer, so a plan in the wrong language produces a draft in the wrong language.
 
 If user plan feedback is included in the message, treat every point as a mandatory change and produce a fully revised plan that addresses all feedback.`;

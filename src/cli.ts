@@ -18,6 +18,7 @@ const ArgsSchema = z.object({
   tone: z.string().min(1),
   audience: z.string().min(1),
   'word-count': z.coerce.number().int().positive(),
+  language: z.string().min(2).default('uk'),
   verbose: z.boolean().default(false),
 });
 
@@ -30,6 +31,7 @@ Options:
   --tone        Tone of voice, e.g. "professional" (required)
   --audience    Target audience, e.g. "SMB owners" (required)
   --word-count  Target word count (required)
+  --language    BCP-47 output language, e.g. uk | en (default: uk)
   --verbose     Show tool-call details
 
 Example:
@@ -113,6 +115,7 @@ export async function main(): Promise<void> {
       tone: { type: 'string' },
       audience: { type: 'string' },
       'word-count': { type: 'string' },
+      language: { type: 'string' },
       verbose: { type: 'boolean', default: false },
     },
     strict: true,
@@ -136,6 +139,7 @@ export async function main(): Promise<void> {
     tone: args.tone,
     target_audience: args.audience,
     word_count: args['word-count'],
+    language: args.language,
   });
 
   const threadId = crypto.randomUUID();

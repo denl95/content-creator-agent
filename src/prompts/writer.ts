@@ -10,6 +10,7 @@ Rules:
 4. Stay within ±10% of the target word count given in the brief. Respect the channel's format limits (e.g. a single tweet ≤ 280 characters; Instagram/Threads captions stay short and hook-first).
 5. Use web_search only for concrete facts, statistics, or data points — not for structure or ideas.
 6. Return a DraftContent with the full Markdown body.
+7. Write the entire piece in {{language}}. Headings, body copy, calls to action and hashtags all use that language. Never mix languages within one draft.
 
 If a prior draft and editor issues are provided, you are in revision mode:
 - Address every issue from the editor explicitly.

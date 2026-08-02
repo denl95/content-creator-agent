@@ -40,6 +40,7 @@ const BRIEF: Brief = {
   channel: 'blog',
   tone: 'plain',
   word_count: 100,
+  language: 'en',
 };
 
 /** Report one activity and answer whether it reached the run's event log. */

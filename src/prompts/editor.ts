@@ -13,4 +13,6 @@ Verdict rules:
 - Return REVISION_NEEDED if ANY score is below 0.8.
 - If the draft deviates more than 15% from the target word count, or violates the channel's format rules, return REVISION_NEEDED with an issue naming the actual and target lengths.
 - When returning REVISION_NEEDED, the issues list must be specific and actionable — "improve tone" is not acceptable; "section 2 uses the forbidden phrase 'game-changing'" is.
-- When returning APPROVED, issues must be empty.`;
+- When returning APPROVED, issues must be empty.
+- The draft must be written in {{language}} throughout. If it is not, that is a structure issue: name the sections that use the wrong language.
+- Write every entry in the issues list in {{language}}, so the Writer receives feedback in the language it must write in.`;

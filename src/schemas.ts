@@ -8,6 +8,13 @@ export const BriefSchema = z.object({
     .describe('Publishing channel that determines format and length rules'),
   tone: z.string().describe("Desired tone of voice, e.g. 'professional', 'casual', 'data-driven'"),
   word_count: z.number().int().positive().describe('Target word count for the final article'),
+  language: z
+    .string()
+    .min(2)
+    .default('uk')
+    .describe(
+      "BCP-47 tag for the language the content must be written in, e.g. 'uk' or 'en'. Defaults to the shipped brand corpus language.",
+    ),
 });
 
 export const ContentPlanSchema = z.object({

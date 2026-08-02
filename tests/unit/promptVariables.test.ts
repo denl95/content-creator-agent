@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { editorVariables, writerVariables } from '../../src/prompts/managed';
-import type { Brief, ContentPlan } from '../../src/schemas';
+import { editorVariables, strategistVariables, writerVariables } from '../../src/prompts/managed';
+import { type Brief, BriefSchema, type ContentPlan } from '../../src/schemas';
 
 const brief: Brief = {
   topic: 'AI assistants for SMBs',
@@ -8,6 +8,7 @@ const brief: Brief = {
   channel: 'linkedin',
   tone: 'professional',
   word_count: 900,
+  language: 'uk',
 };
 
 const plan: ContentPlan = {
@@ -33,5 +34,45 @@ describe('editorVariables', () => {
     expect(vars.word_count).toBe('900');
     expect(vars.actual_word_count).toBe('5');
     expect(vars.brand_style).toBe('BRAND RULES');
+  });
+});
+
+describe('language', () => {
+  test('strategistVariables passes the brief language through', () => {
+    const vars = strategistVariables(brief, null);
+    expect(vars.language).toBe('uk');
+  });
+
+  test('writerVariables passes the brief language through', () => {
+    const vars = writerVariables(plan, brief, null);
+    expect(vars.language).toBe('uk');
+  });
+
+  test('editorVariables passes the brief language through', () => {
+    const vars = editorVariables(plan, brief, 'five words of draft content', 'BRAND RULES');
+    expect(vars.language).toBe('uk');
+  });
+
+  test('BriefSchema defaults language to uk when omitted', () => {
+    const parsed = BriefSchema.parse({
+      topic: 'T',
+      target_audience: 'A',
+      channel: 'blog',
+      tone: 'professional',
+      word_count: 500,
+    });
+    expect(parsed.language).toBe('uk');
+  });
+
+  test('BriefSchema keeps an explicit language', () => {
+    const parsed = BriefSchema.parse({
+      topic: 'T',
+      target_audience: 'A',
+      channel: 'blog',
+      tone: 'professional',
+      word_count: 500,
+      language: 'en',
+    });
+    expect(parsed.language).toBe('en');
   });
 });

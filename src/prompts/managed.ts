@@ -50,6 +50,7 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
       'channel',
       'tone',
       'word_count',
+      'language',
       'revision_feedback',
     ],
     fallback: [
@@ -82,6 +83,7 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
       'tone',
       'channel',
       'word_count',
+      'language',
       'prior_draft',
       'editor_feedback',
     ],
@@ -118,6 +120,7 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
       'channel',
       'word_count',
       'actual_word_count',
+      'language',
       'brand_style',
       'draft_content',
     ],
@@ -250,6 +253,7 @@ export function strategistVariables(
     channel: string;
     tone: string;
     word_count: number;
+    language: string;
   },
   feedback?: string | null,
 ): Record<string, string> {
@@ -259,6 +263,7 @@ export function strategistVariables(
     channel: brief.channel,
     tone: brief.tone,
     word_count: String(brief.word_count),
+    language: brief.language,
     revision_feedback: feedback ? `--- REVISION FEEDBACK (mandatory) ---\n${feedback}` : '',
   };
 }
@@ -276,6 +281,7 @@ export function writerVariables(
     tone: plan.tone,
     channel: brief.channel,
     word_count: String(brief.word_count),
+    language: brief.language,
     prior_draft: prior ? `--- REVISION MODE ---\nPrevious draft:\n${prior.draft.content}` : '',
     editor_feedback: prior
       ? [
@@ -301,6 +307,7 @@ export function editorVariables(
     channel: brief.channel,
     word_count: String(brief.word_count),
     actual_word_count: String(countWords(draftContent)),
+    language: brief.language,
     brand_style: brandStyle,
     draft_content: draftContent,
   };
