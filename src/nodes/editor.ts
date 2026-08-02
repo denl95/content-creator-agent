@@ -28,15 +28,10 @@ export async function editor(
     kind: 'reviewing',
     detail: `pass ${state.iteration} of ${MAX_ITERATIONS}`,
   });
-  // One string for both, so the reported detail cannot drift from the query
-  // actually run — the tool path in rag.ts reports the literal query too.
-  const styleQuery = `${state.brief.channel} tone of voice rules, forbidden phrases, style guide`;
-  reportActivity(threadId, {
-    step: 'editor',
-    kind: 'brand_style_lookup',
-    detail: `"${styleQuery}"`,
-  });
-  const brandStyle = await lookupBrandStyle(styleQuery);
+  const brandStyle = await lookupBrandStyle(
+    `${state.brief.channel} tone of voice rules, forbidden phrases, style guide`,
+    threadId,
+  );
   const prompt = await compileManagedPrompt(
     'editor',
     editorVariables(state.plan, state.brief, state.draft.content, brandStyle),

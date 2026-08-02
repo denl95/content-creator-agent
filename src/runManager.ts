@@ -8,6 +8,20 @@ import { makeInitialState } from './state';
 import { resetSearchCount } from './tools/search';
 
 export type RunStatus = 'running' | 'awaiting_approval' | 'done' | 'error';
+
+/** The run has finished, one way or the other, and will emit nothing further. */
+export function isTerminal(status: RunStatus): boolean {
+  return status === 'done' || status === 'error';
+}
+
+/**
+ * Outcome of a resume attempt. On failure the run's current status is reported
+ * so the caller can tell "this run is gone" (`null`) from "it already moved past
+ * the gate" — a client that retries a resume it could not confirm needs that
+ * distinction, and a bare 409 collapses the two.
+ */
+export type ResumeResult = { resumed: true } | { resumed: false; status: RunStatus | null };
+
 export type RunEvent = { node: string; data: unknown; ts: number; seq: number };
 
 export type RunRecord = {
@@ -112,7 +126,7 @@ async function drive(run: InternalRun, input: any): Promise<void> {
     run.error = err instanceof Error ? err.message : String(err);
     emit(run, 'error', { message: run.error });
   } finally {
-    if (run.status === 'done' || run.status === 'error') {
+    if (isTerminal(run.status)) {
       resetSearchCount(run.threadId);
       clearActivitySink(run.threadId);
     }
@@ -140,10 +154,9 @@ export function startRun(brief: Brief): string {
 export function sweepStaleRuns(now = Date.now()): number {
   let removed = 0;
   for (const [threadId, run] of runs) {
-    const isTerminal = run.status === 'done' || run.status === 'error';
-    const isStaleAwaitingApproval =
-      run.status === 'awaiting_approval' && now - run.createdAt > RUN_TTL_MS;
-    const isStaleTerminal = isTerminal && now - run.createdAt > RUN_TTL_MS;
+    const isStale = now - run.createdAt > RUN_TTL_MS;
+    const isStaleAwaitingApproval = run.status === 'awaiting_approval' && isStale;
+    const isStaleTerminal = isTerminal(run.status) && isStale;
     if (isStaleAwaitingApproval || isStaleTerminal) {
       runs.delete(threadId);
       resetSearchCount(threadId);
@@ -157,10 +170,11 @@ export function sweepStaleRuns(now = Date.now()): number {
 export function resumeRun(
   threadId: string,
   decision: { approved: boolean; feedback?: string },
-): boolean {
+): ResumeResult {
   const run = runs.get(threadId);
-  if (!run || run.status !== 'awaiting_approval') return false;
+  if (!run) return { resumed: false, status: null };
+  if (run.status !== 'awaiting_approval') return { resumed: false, status: run.status };
   run.interruptPayload = null;
   void drive(run, new Command({ resume: decision }));
-  return true;
+  return { resumed: true };
 }

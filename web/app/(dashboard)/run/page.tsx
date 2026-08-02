@@ -3,54 +3,87 @@
 import Link from 'next/link';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { ActivityLog, type ActivityEntry } from '@/components/activity-log';
+import { BriefForm } from '@/components/brief-form';
 import { PipelineProgress } from '@/components/pipeline-progress';
 import { PlanApproval } from '@/components/plan-approval';
-import { Button } from '@/components/ui/button';
+import { RunError, type RunFailure } from '@/components/run-error';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatUsd } from '@/lib/format';
+import { errorMessage } from '@/lib/errors';
+import { formatElapsed, formatUsd } from '@/lib/format';
 import { type ContentPlan, type EditFeedback, NODES, type RunEvent } from '@/lib/types';
 
-const CHANNELS = ['blog', 'linkedin', 'twitter', 'instagram', 'threads'];
 /** Enough to follow a run without letting a long editor loop grow unbounded. */
 const MAX_ACTIVITY = 50;
 
-type Connection = 'idle' | 'open' | 'reconnecting' | 'lost';
-
-function formatElapsed(ms: number): string {
-  const total = Math.floor(ms / 1000);
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-}
-
-async function errorMessage(res: Response, fallback: string): Promise<string> {
-  if (res.status === 401) return 'Your session expired. Sign in again to continue.';
-  const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
-  if (typeof body?.error === 'string') return body.error;
-  return `${fallback} (HTTP ${res.status})`;
-}
+/** Where the run stands once a resume attempt has failed. */
+type Gate =
+  | 'restore' // still at the approval gate, or unknowable — put the card back
+  | 'moved' // the decision landed after all; follow the run
+  | 'gone'; // the run no longer exists
 
 /**
- * Where the run stands at the approval gate.
- *
  * A failed resume does not mean the resume never happened — a 502 from the
  * proxy, or a connection dropped after delivery, can both leave the run already
  * past the gate. Restoring the approval card then would show a plan for a run
  * that is mid-writer, and the next Approve would 409 with "the run timed out",
- * which is the opposite of true. 'unknown' keeps the card, because a still-
- * waiting run is the case where the user needs it.
+ * which is the opposite of true. An unknown answer maps to 'restore', because a
+ * still-waiting run is the case where the user needs the card back.
  */
-type GateState = 'awaiting' | 'moved' | 'gone' | 'unknown';
+function gateFromStatus(status: unknown): Gate {
+  if (status === null) return 'gone';
+  if (typeof status !== 'string') return 'restore';
+  return status === 'awaiting_approval' ? 'restore' : 'moved';
+}
 
-async function gateState(id: string): Promise<GateState> {
+/** Ask the server where the run stands. Only needed when no response came back. */
+async function fetchGate(id: string): Promise<Gate> {
   try {
     const res = await fetch(`/api/runs/${id}`);
     if (res.status === 404) return 'gone';
-    if (!res.ok) return 'unknown';
+    if (!res.ok) return 'restore';
     const run = (await res.json().catch(() => null)) as { status?: unknown } | null;
-    if (typeof run?.status !== 'string') return 'unknown';
-    return run.status === 'awaiting_approval' ? 'awaiting' : 'moved';
+    return gateFromStatus(run?.status);
   } catch {
-    return 'unknown';
+    return 'restore';
   }
+}
+
+type Submission = { ok: true } | { ok: false; gate: Gate; message: string };
+
+/**
+ * Submit an approval decision. The 409 body carries the run's actual status, so
+ * a rejected decision is classified without a second round-trip; only a genuine
+ * transport failure has to ask.
+ */
+async function submitDecision(id: string, approved: boolean, note?: string): Promise<Submission> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/runs/${id}/resume`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(approved ? { approved: true } : { approved: false, feedback: note }),
+    });
+  } catch {
+    return {
+      ok: false,
+      gate: await fetchGate(id),
+      message: 'The server was unreachable. The run is still waiting — try again.',
+    };
+  }
+  if (res.ok) return { ok: true };
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => null)) as { status?: unknown } | null;
+    return {
+      ok: false,
+      gate: gateFromStatus(body?.status ?? null),
+      message: 'The server restarted or the run timed out. Start a new run.',
+    };
+  }
+  return {
+    ok: false,
+    gate: await fetchGate(id),
+    message: await errorMessage(res, 'The server rejected the request'),
+  };
 }
 
 export default function RunPage() {
@@ -59,21 +92,23 @@ export default function RunPage() {
   const [active, setActive] = useState<string | null>(null);
   const [plan, setPlan] = useState<ContentPlan | null>(null);
   // Survives a failed "Request changes" so the user's typed note is not lost
-  // when the approval card is restored. PlanApproval seeds its own state from
-  // this on mount, and restoring the plan remounts it.
+  // when the approval card is restored; PlanApproval seeds its state from this.
   const [planNote, setPlanNote] = useState('');
   const [feedback, setFeedback] = useState<EditFeedback | null>(null);
   const [result, setResult] = useState<{ costUsd: number; tokens: number } | null>(null);
-  const [error, setError] = useState<{ title: string; message: string } | null>(null);
+  const [error, setError] = useState<RunFailure | null>(null);
   const [running, setRunning] = useState(false);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
-  const [live, setLive] = useState<{ costUsd: number; tokens: number } | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const [connection, setConnection] = useState<Connection>('idle');
+  const [reconnecting, setReconnecting] = useState(false);
   const lastSeq = useRef(-1);
   const source = useRef<EventSource | null>(null);
-  const threadIdRef = useRef<string | null>(null);
+
+  // Cost and tokens ride along on every activity event, and the cap drops from
+  // the front — so the newest entry always holds the live totals. No separate
+  // state to keep in step.
+  const latest = activity[activity.length - 1];
 
   useEffect(() => {
     if (!running || startedAt === null) return;
@@ -87,25 +122,17 @@ export default function RunPage() {
   useEffect(() => () => source.current?.close(), []);
 
   /**
-   * The run is no longer on the server. The stream has to be closed here:
-   * leaving it open means the endpoint 404s on the next reconnect, `onerror`
-   * fires with readyState CLOSED, and this accurate message is replaced a second
-   * later by "Lost the connection…" plus a reconnect button that can only 404.
+   * Wind the run down. Closing the stream is part of stopping: leaving it open
+   * after the run is gone means the endpoint 404s on the next reconnect,
+   * `onerror` fires with readyState CLOSED, and an accurate message is replaced
+   * a second later by "Lost the connection…". Every caller wants that, so it
+   * belongs here rather than being repeated at each site.
    */
-  function runIsGone() {
+  function stop(failure?: RunFailure) {
     source.current?.close();
-    setConnection('idle');
-    stop({
-      title: 'Run no longer active',
-      message: 'The server restarted or the run timed out. Start a new run.',
-    });
-  }
-
-  // Not every stop is a failed run — a rejected resume or a dropped connection
-  // leaves the run alive server-side, so the heading has to say which it is.
-  function stop(failure?: { title: string; message: string }) {
     setRunning(false);
     setActive(null);
+    setReconnecting(false);
     if (failure) setError(failure);
   }
 
@@ -113,7 +140,6 @@ export default function RunPage() {
     if (event.node === 'activity') {
       const entry: ActivityEntry = { ...event.data, ts: event.ts, seq: event.seq };
       setActivity((prev) => [...prev, entry].slice(-MAX_ACTIVITY));
-      setLive({ costUsd: entry.costUsd ?? 0, tokens: entry.tokens ?? 0 });
       // Activity is the only signal for which step is *currently* working — node
       // events only ever say a step finished.
       if (NODES.includes(entry.step)) setActive(entry.step);
@@ -137,21 +163,17 @@ export default function RunPage() {
     }
     if (event.node === 'done') {
       setResult({ costUsd: event.data.costUsd ?? 0, tokens: event.data.tokens ?? 0 });
-      setConnection('idle');
       stop();
-      source.current?.close();
     }
     if (event.node === 'error') {
-      setConnection('idle');
       stop({ title: 'Run failed', message: event.data.message ?? 'The run failed.' });
-      source.current?.close();
     }
   }
 
   function listen(id: string) {
     source.current?.close();
     const es = new EventSource(`/api/runs/${id}/events`);
-    es.onopen = () => setConnection('open');
+    es.onopen = () => setReconnecting(false);
     es.onmessage = (event) => {
       let parsed: RunEvent;
       try {
@@ -170,17 +192,24 @@ export default function RunPage() {
       // the run is gone after a restart). CONNECTING means it is retrying on its
       // own, so say so rather than declaring failure.
       if (es.readyState === EventSource.CLOSED) {
-        setConnection('lost');
         stop({
           title: 'Connection lost',
           message:
             'Lost the connection to this run and could not reconnect. If the server restarted, the run is gone — but any finished draft is still saved under Drafts.',
+          retry: true,
         });
       } else {
-        setConnection('reconnecting');
+        setReconnecting(true);
       }
     };
     source.current = es;
+  }
+
+  /** Attach to a run that is (still) in flight. */
+  function follow(id: string) {
+    setThreadId(id);
+    setRunning(true);
+    listen(id);
   }
 
   async function start(event: FormEvent<HTMLFormElement>) {
@@ -189,9 +218,7 @@ export default function RunPage() {
 
     // Close first: `lastSeq` is reset below, so a still-open stream from a
     // previous run (one parked at the approval gate, say) would have its events
-    // accepted past the cleared floor and rendered as this run's. The early
-    // returns further down never reach `listen()`, which would leave it feeding
-    // `handle()` indefinitely.
+    // accepted past the cleared floor and rendered as this run's.
     source.current?.close();
     setDone(new Set());
     setPlan(null);
@@ -200,10 +227,9 @@ export default function RunPage() {
     setResult(null);
     setError(null);
     setActivity([]);
-    setLive(null);
     setStartedAt(Date.now());
     setElapsed(0);
-    setConnection('idle');
+    setReconnecting(false);
     lastSeq.current = -1;
     setRunning(true);
     setActive('strategist');
@@ -245,18 +271,11 @@ export default function RunPage() {
       });
       return;
     }
-    threadIdRef.current = body.thread_id;
-    setThreadId(body.thread_id);
-    listen(body.thread_id);
+    follow(body.thread_id);
   }
 
   async function decide(approved: boolean, note?: string) {
-    const id = threadIdRef.current;
-    if (!id) return;
-    // Keep the plan so a failed submit can put the card back. Without this the
-    // approval UI is gone for a run that is still sitting in awaiting_approval
-    // server-side, and telling the user "the run is still waiting" is useless
-    // because there is no longer anything to approve with.
+    if (!threadId) return;
     const submitted = plan;
     // Clear any earlier failure up front: this attempt may well succeed, and a
     // stale red alert sitting above a streaming run reads as a broken run.
@@ -264,112 +283,26 @@ export default function RunPage() {
     setPlan(null);
     setActive('writer');
 
-    // Shared by every failure path. Whether the card comes back depends on where
-    // the run actually stands, not on the assumption that the request never landed.
-    const handleFailure = async (message: string) => {
-      const state = await gateState(id);
-      if (state === 'moved') {
-        // The decision was delivered after all — follow the run instead of
-        // claiming a failure the user would otherwise "retry" into a 409.
-        setRunning(true);
-        listen(id);
-        return;
-      }
-      if (state === 'gone') {
-        runIsGone();
-        return;
-      }
-      setPlan(submitted);
-      setPlanNote(note ?? '');
-      stop({ title: 'Could not submit your decision', message });
-    };
-
-    let res: Response;
-    try {
-      res = await fetch(`/api/runs/${id}/resume`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(approved ? { approved: true } : { approved: false, feedback: note }),
-      });
-    } catch {
-      await handleFailure('The server was unreachable. The run is still waiting — try again.');
+    const outcome = await submitDecision(threadId, approved, note);
+    if (outcome.ok || outcome.gate === 'moved') {
+      setPlanNote('');
+      follow(threadId);
       return;
     }
-    if (!res.ok) {
-      // 409 is the one status that is self-explanatory: the run is no longer
-      // awaiting approval because the server restarted or the TTL sweep dropped
-      // it, and runs live in memory only.
-      if (res.status === 409) runIsGone();
-      else await handleFailure(await errorMessage(res, 'The server rejected the request'));
+    if (outcome.gate === 'gone') {
+      stop({ title: 'Run no longer active', message: outcome.message });
       return;
     }
-    setPlanNote('');
-    setRunning(true);
-    listen(id);
+    setPlan(submitted);
+    setPlanNote(note ?? '');
+    stop({ title: 'Could not submit your decision', message: outcome.message });
   }
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">New run</h1>
 
-      <Card>
-        <CardContent className="p-6">
-          <form onSubmit={start} className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm">
-              Topic
-              <input
-                name="topic"
-                required
-                defaultValue="How an AI assistant saves 10 hours a week"
-                className="rounded-md border bg-transparent px-3 py-2"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Channel
-              <select name="channel" className="rounded-md border bg-transparent px-3 py-2">
-                {CHANNELS.map((channel) => (
-                  <option key={channel} value={channel}>
-                    {channel}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Tone
-              <input
-                name="tone"
-                required
-                defaultValue="professional"
-                className="rounded-md border bg-transparent px-3 py-2"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Audience
-              <input
-                name="target_audience"
-                required
-                defaultValue="SMB owners"
-                className="rounded-md border bg-transparent px-3 py-2"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Word count
-              <input
-                name="word_count"
-                type="number"
-                required
-                defaultValue={800}
-                className="rounded-md border bg-transparent px-3 py-2"
-              />
-            </label>
-            <div className="flex items-end">
-              <Button type="submit" disabled={running} className="w-full">
-                {running ? 'Running…' : 'Generate'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+      <BriefForm running={running} onSubmit={start} />
 
       <div className="space-y-3">
         <PipelineProgress done={done} active={active} />
@@ -380,17 +313,15 @@ export default function RunPage() {
         {running || activity.length > 0 ? (
           <p className="eonyx-label flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="tabular-nums">{formatElapsed(elapsed)} elapsed</span>
-            {live ? (
+            {latest ? (
               <>
                 <span aria-hidden>·</span>
-                <span className="tabular-nums">{live.tokens.toLocaleString()} tokens</span>
+                <span className="tabular-nums">{(latest.tokens ?? 0).toLocaleString()} tokens</span>
                 <span aria-hidden>·</span>
-                <span className="tabular-nums">{formatUsd(live.costUsd)}</span>
+                <span className="tabular-nums">{formatUsd(latest.costUsd ?? 0)}</span>
               </>
             ) : null}
-            {connection === 'reconnecting' ? (
-              <span className="text-state-revision">· reconnecting…</span>
-            ) : null}
+            {reconnecting ? <span className="text-state-revision">· reconnecting…</span> : null}
           </p>
         ) : null}
 
@@ -407,26 +338,17 @@ export default function RunPage() {
       {plan ? <PlanApproval plan={plan} defaultNote={planNote} onDecision={decide} /> : null}
 
       {error ? (
-        <div
-          role="alert"
-          className="rounded-sm border border-l-2 border-destructive/40 border-l-destructive bg-destructive/10 p-4"
-        >
-          <p className="eonyx-label text-destructive">{error.title}</p>
-          <p className="mt-1 text-sm">{error.message}</p>
-          {connection === 'lost' && threadId ? (
-            <Button
-              variant="secondary"
-              className="mt-3"
-              onClick={() => {
-                setError(null);
-                setRunning(true);
-                listen(threadId);
-              }}
-            >
-              Try reconnecting
-            </Button>
-          ) : null}
-        </div>
+        <RunError
+          failure={error}
+          onRetry={
+            threadId
+              ? () => {
+                  setError(null);
+                  follow(threadId);
+                }
+              : undefined
+          }
+        />
       ) : null}
 
       {result && threadId ? (

@@ -12,7 +12,7 @@ import {
 } from './auth';
 import { getDraft, getStats, listDrafts, setDraftNotionUrl } from './db';
 import { publishDraft } from './mcp/notion';
-import { getRun, resumeRun, startRun, subscribe, sweepStaleRuns } from './runManager';
+import { getRun, isTerminal, resumeRun, startRun, subscribe, sweepStaleRuns } from './runManager';
 import { BriefSchema } from './schemas';
 
 const ResumeSchema = z.union([
@@ -128,8 +128,13 @@ app.post('/runs/:id/resume', async (c) => {
   const body = await c.req.json().catch(() => null);
   const parsed = ResumeSchema.safeParse(body);
   if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
-  const ok = resumeRun(c.req.param('id'), parsed.data);
-  if (!ok) return c.json({ error: 'run not found or not awaiting approval' }, 409);
+  const result = resumeRun(c.req.param('id'), parsed.data);
+  if (!result.resumed) {
+    // `status` is what lets the client tell a run that is gone from one that has
+    // already moved past the gate — a retried resume needs that distinction, and
+    // it is knowledge only this handler has.
+    return c.json({ error: 'run not found or not awaiting approval', status: result.status }, 409);
+  }
   return c.json({ resumed: true });
 });
 
@@ -156,10 +161,13 @@ app.get('/runs/:id/events', (c) => {
       void stream.writeSSE({ data: JSON.stringify(event) });
     });
     try {
+      // The poll does a second job beyond spotting a terminal status: a run
+      // removed by sweepStaleRuns emits nothing, so closing on the done/error
+      // event alone would leave that stream open forever.
       await pumpKeepalive(stream, () => {
         if (!open) return false;
         const current = getRun(id);
-        return !!current && current.status !== 'done' && current.status !== 'error';
+        return !!current && !isTerminal(current.status);
       });
     } finally {
       unsubscribe?.();

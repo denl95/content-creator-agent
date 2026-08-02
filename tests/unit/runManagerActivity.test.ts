@@ -111,7 +111,7 @@ describe('activity sink lifecycle', () => {
 
     chunks = [];
     gate = Promise.resolve();
-    expect(resumeRun(threadId, { approved: true })).toBe(true);
+    expect(resumeRun(threadId, { approved: true })).toEqual({ resumed: true });
     await settle(threadId, 'done');
     expect(reportReaches(threadId)).toBe(false);
   });

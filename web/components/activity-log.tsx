@@ -1,6 +1,7 @@
 'use client';
 
-import { type UIEvent, useEffect, useRef } from 'react';
+import { memo, type UIEvent, useEffect, useRef } from 'react';
+import { formatClock } from '@/lib/format';
 import { isFailedKind, type RunActivity } from '@/lib/types';
 
 export type ActivityEntry = RunActivity & { ts: number; seq: number };
@@ -8,15 +9,10 @@ export type ActivityEntry = RunActivity & { ts: number; seq: number };
 /** Distance from the bottom, in px, still counted as "following the tail". */
 const PIN_THRESHOLD = 48;
 
-function clock(ts: number): string {
-  return new Date(ts).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
-
-export function ActivityLog({ entries }: { entries: ActivityEntry[] }) {
+// Memoised because the page re-renders every second from the elapsed clock while
+// `entries` is unchanged — without this, every visible row is rebuilt and
+// re-formatted ~300 times over a five-minute run for no visible difference.
+export const ActivityLog = memo(function ActivityLog({ entries }: { entries: ActivityEntry[] }) {
   const listRef = useRef<HTMLDivElement | null>(null);
   // Whether the user is still reading the tail. Tracked on scroll rather than
   // measured inside the effect: by the time the effect runs the new row has
@@ -63,12 +59,8 @@ export function ActivityLog({ entries }: { entries: ActivityEntry[] }) {
               key={entry.seq}
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 font-mono text-[11px]"
             >
-              <span className="tabular-nums text-muted-foreground">{clock(entry.ts)}</span>
-              <span
-                className={`uppercase tracking-[0.16em] ${
-                  failed ? 'text-destructive' : 'text-brand'
-                }`}
-              >
+              <span className="tabular-nums text-muted-foreground">{formatClock(entry.ts)}</span>
+              <span className={`eonyx-label ${failed ? 'text-destructive' : 'text-brand'}`}>
                 {entry.kind.replace(/_/g, ' ')}
               </span>
               <span className={`min-w-0 flex-1 wrap-break-word ${failed ? 'text-destructive' : ''}`}>
@@ -81,4 +73,4 @@ export function ActivityLog({ entries }: { entries: ActivityEntry[] }) {
       </ul>
     </div>
   );
-}
+});

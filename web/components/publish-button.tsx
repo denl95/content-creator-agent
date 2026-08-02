@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { errorMessage } from '@/lib/errors';
 
 export function PublishButton({ draftId }: { draftId: string }) {
   const router = useRouter();
@@ -13,13 +14,12 @@ export function PublishButton({ draftId }: { draftId: string }) {
     setPending(true);
     setError('');
     const res = await fetch(`/api/drafts/${draftId}/publish`, { method: 'POST' });
-    const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
     setPending(false);
     if (res.ok) {
       router.refresh();
       return;
     }
-    setError(body.error ?? 'Publish failed');
+    setError(await errorMessage(res, 'Publish failed'));
   }
 
   return (
