@@ -6,6 +6,12 @@ import { Card, CardContent } from '@/components/ui/card';
 
 const CHANNELS = ['blog', 'linkedin', 'twitter', 'instagram', 'threads'];
 
+/** Defaults to Ukrainian because the shipped brand corpus in data/brand is Ukrainian. */
+const LANGUAGES = [
+  { value: 'uk', label: 'Українська' },
+  { value: 'en', label: 'English' },
+];
+
 const FIELD = 'rounded-md border bg-transparent px-3 py-2';
 const LABEL = 'flex flex-col gap-1 text-sm';
 
@@ -30,7 +36,7 @@ export function BriefForm({
             <input
               name="topic"
               required
-              defaultValue="How an AI assistant saves 10 hours a week"
+              defaultValue="Як LLM-асистент замінив менеджера підтримки"
               className={FIELD}
             />
           </label>
@@ -46,15 +52,30 @@ export function BriefForm({
           </label>
           <label className={LABEL}>
             Tone
-            <input name="tone" required defaultValue="professional" className={FIELD} />
+            <input name="tone" required defaultValue="доступний" className={FIELD} />
           </label>
           <label className={LABEL}>
             Audience
-            <input name="target_audience" required defaultValue="SMB owners" className={FIELD} />
+            <input
+              name="target_audience"
+              required
+              defaultValue="власники малого бізнесу"
+              className={FIELD}
+            />
           </label>
           <label className={LABEL}>
             Word count
             <input name="word_count" type="number" required defaultValue={800} className={FIELD} />
+          </label>
+          <label className={LABEL}>
+            Language
+            <select name="language" className={FIELD}>
+              {LANGUAGES.map((language) => (
+                <option key={language.value} value={language.value}>
+                  {language.label}
+                </option>
+              ))}
+            </select>
           </label>
           <div className="flex items-end">
             <Button type="submit" disabled={running} className="w-full">
