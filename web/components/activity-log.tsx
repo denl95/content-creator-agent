@@ -25,10 +25,15 @@ export function ActivityLog({ entries }: { entries: ActivityEntry[] }) {
   // back down on the next web search.
   const pinned = useRef(true);
 
+  // Keyed on the newest seq, not on length: the list is capped, so once it
+  // saturates `length` stops changing and a length-keyed effect would never run
+  // again — auto-follow would die partway through exactly the long runs this
+  // log exists for. seq is monotonic per run, so it keeps changing.
+  const newestSeq = entries[entries.length - 1]?.seq;
   useEffect(() => {
     const el = listRef.current;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [entries.length]);
+  }, [newestSeq]);
 
   function handleScroll(event: UIEvent<HTMLDivElement>) {
     const el = event.currentTarget;
@@ -38,10 +43,15 @@ export function ActivityLog({ entries }: { entries: ActivityEntry[] }) {
   if (entries.length === 0) return null;
 
   return (
+    // role="log" implies aria-live="polite" *and* aria-relevant="additions",
+    // which matters because the cap removes rows from the top — a bare
+    // aria-live makes some screen readers announce those removals too.
+    // tabIndex makes the scroll region reachable without a mouse.
     <div
       ref={listRef}
       onScroll={handleScroll}
-      aria-live="polite"
+      role="log"
+      tabIndex={0}
       aria-label="Run activity"
       className="max-h-64 overflow-y-auto rounded-sm border border-border bg-card"
     >

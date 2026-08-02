@@ -7,12 +7,15 @@ import type { ContentPlan } from '@/lib/types';
 
 export function PlanApproval({
   plan,
+  defaultNote = '',
   onDecision,
 }: {
   plan: ContentPlan;
+  /** Seeds the note so a failed submit does not discard what the user typed. */
+  defaultNote?: string;
   onDecision: (approved: boolean, feedback?: string) => void;
 }) {
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState(defaultNote);
 
   return (
     <Card className="border-brand/40">

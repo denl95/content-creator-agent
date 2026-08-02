@@ -165,7 +165,14 @@ app.get('/runs/:id/events', (c) => {
       unsubscribe?.();
     }
   });
-  res.headers.set('Cache-Control', 'no-cache, no-transform');
+  // Augment rather than replace, so anything Hono sets here in future survives.
+  res.headers.set(
+    'Cache-Control',
+    `${res.headers.get('Cache-Control') ?? 'no-cache'}, no-transform`,
+  );
+  // Belt and braces for the day this sits behind nginx, which buffers proxied
+  // responses regardless of Cache-Control.
+  res.headers.set('X-Accel-Buffering', 'no');
   return res;
 });
 

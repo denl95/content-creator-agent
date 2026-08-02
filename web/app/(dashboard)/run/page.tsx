@@ -28,11 +28,40 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   return `${fallback} (HTTP ${res.status})`;
 }
 
+/**
+ * Where the run stands at the approval gate.
+ *
+ * A failed resume does not mean the resume never happened — a 502 from the
+ * proxy, or a connection dropped after delivery, can both leave the run already
+ * past the gate. Restoring the approval card then would show a plan for a run
+ * that is mid-writer, and the next Approve would 409 with "the run timed out",
+ * which is the opposite of true. 'unknown' keeps the card, because a still-
+ * waiting run is the case where the user needs it.
+ */
+type GateState = 'awaiting' | 'moved' | 'gone' | 'unknown';
+
+async function gateState(id: string): Promise<GateState> {
+  try {
+    const res = await fetch(`/api/runs/${id}`);
+    if (res.status === 404) return 'gone';
+    if (!res.ok) return 'unknown';
+    const run = (await res.json().catch(() => null)) as { status?: unknown } | null;
+    if (typeof run?.status !== 'string') return 'unknown';
+    return run.status === 'awaiting_approval' ? 'awaiting' : 'moved';
+  } catch {
+    return 'unknown';
+  }
+}
+
 export default function RunPage() {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [done, setDone] = useState<Set<string>>(new Set());
   const [active, setActive] = useState<string | null>(null);
   const [plan, setPlan] = useState<ContentPlan | null>(null);
+  // Survives a failed "Request changes" so the user's typed note is not lost
+  // when the approval card is restored. PlanApproval seeds its own state from
+  // this on mount, and restoring the plan remounts it.
+  const [planNote, setPlanNote] = useState('');
   const [feedback, setFeedback] = useState<EditFeedback | null>(null);
   const [result, setResult] = useState<{ costUsd: number; tokens: number } | null>(null);
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
@@ -56,6 +85,21 @@ export default function RunPage() {
 
   // The page owns the EventSource, so it must be closed when the user leaves.
   useEffect(() => () => source.current?.close(), []);
+
+  /**
+   * The run is no longer on the server. The stream has to be closed here:
+   * leaving it open means the endpoint 404s on the next reconnect, `onerror`
+   * fires with readyState CLOSED, and this accurate message is replaced a second
+   * later by "Lost the connection…" plus a reconnect button that can only 404.
+   */
+  function runIsGone() {
+    source.current?.close();
+    setConnection('idle');
+    stop({
+      title: 'Run no longer active',
+      message: 'The server restarted or the run timed out. Start a new run.',
+    });
+  }
 
   // Not every stop is a failed run — a rejected resume or a dropped connection
   // leaves the run alive server-side, so the heading has to say which it is.
@@ -143,8 +187,15 @@ export default function RunPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
+    // Close first: `lastSeq` is reset below, so a still-open stream from a
+    // previous run (one parked at the approval gate, say) would have its events
+    // accepted past the cleared floor and rendered as this run's. The early
+    // returns further down never reach `listen()`, which would leave it feeding
+    // `handle()` indefinitely.
+    source.current?.close();
     setDone(new Set());
     setPlan(null);
+    setPlanNote('');
     setFeedback(null);
     setResult(null);
     setError(null);
@@ -207,8 +258,32 @@ export default function RunPage() {
     // server-side, and telling the user "the run is still waiting" is useless
     // because there is no longer anything to approve with.
     const submitted = plan;
+    // Clear any earlier failure up front: this attempt may well succeed, and a
+    // stale red alert sitting above a streaming run reads as a broken run.
+    setError(null);
     setPlan(null);
     setActive('writer');
+
+    // Shared by every failure path. Whether the card comes back depends on where
+    // the run actually stands, not on the assumption that the request never landed.
+    const handleFailure = async (message: string) => {
+      const state = await gateState(id);
+      if (state === 'moved') {
+        // The decision was delivered after all — follow the run instead of
+        // claiming a failure the user would otherwise "retry" into a 409.
+        setRunning(true);
+        listen(id);
+        return;
+      }
+      if (state === 'gone') {
+        runIsGone();
+        return;
+      }
+      setPlan(submitted);
+      setPlanNote(note ?? '');
+      stop({ title: 'Could not submit your decision', message });
+    };
+
     let res: Response;
     try {
       res = await fetch(`/api/runs/${id}/resume`, {
@@ -217,31 +292,19 @@ export default function RunPage() {
         body: JSON.stringify(approved ? { approved: true } : { approved: false, feedback: note }),
       });
     } catch {
-      setPlan(submitted);
-      stop({
-        title: 'Could not submit your decision',
-        message: 'The server was unreachable. The run is still waiting — try again.',
-      });
+      await handleFailure('The server was unreachable. The run is still waiting — try again.');
       return;
     }
     if (!res.ok) {
-      // 409 is the only status where discarding the plan is right: the run is no
-      // longer awaiting approval because the server restarted or the TTL sweep
-      // dropped it, and runs live in memory only. Everything else is retryable.
-      if (res.status === 409) {
-        stop({
-          title: 'Run no longer active',
-          message: 'The server restarted or the run timed out. Start a new run.',
-        });
-      } else {
-        setPlan(submitted);
-        stop({
-          title: 'Could not submit your decision',
-          message: await errorMessage(res, 'The server rejected the request'),
-        });
-      }
+      // 409 is the one status that is self-explanatory: the run is no longer
+      // awaiting approval because the server restarted or the TTL sweep dropped
+      // it, and runs live in memory only.
+      if (res.status === 409) runIsGone();
+      else await handleFailure(await errorMessage(res, 'The server rejected the request'));
       return;
     }
+    setPlanNote('');
+    setRunning(true);
     listen(id);
   }
 
@@ -311,8 +374,11 @@ export default function RunPage() {
       <div className="space-y-3">
         <PipelineProgress done={done} active={active} />
 
+        {/* Deliberately not a live region: the elapsed clock ticks every second,
+            so announcing it would mean continuous speech for the whole run. The
+            activity log below carries role="log" instead. */}
         {running || activity.length > 0 ? (
-          <p aria-live="polite" className="eonyx-label flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="eonyx-label flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="tabular-nums">{formatElapsed(elapsed)} elapsed</span>
             {live ? (
               <>
@@ -338,7 +404,7 @@ export default function RunPage() {
         </p>
       ) : null}
 
-      {plan ? <PlanApproval plan={plan} onDecision={decide} /> : null}
+      {plan ? <PlanApproval plan={plan} defaultNote={planNote} onDecision={decide} /> : null}
 
       {error ? (
         <div
