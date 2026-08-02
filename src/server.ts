@@ -10,6 +10,7 @@ import {
   verifyPassword,
   verifySessionCookie,
 } from './auth';
+import { getBrand, listBrands, setDefaultBrand, updateBrand } from './brands';
 import { getDraft, getStats, listDrafts, setDraftNotionUrl } from './db';
 import { publishDraft } from './mcp/notion';
 import { getRun, isTerminal, resumeRun, startRun, subscribe, sweepStaleRuns } from './runManager';
@@ -92,7 +93,15 @@ const requireAuth: MiddlewareHandler = async (c, next) => {
 };
 
 // Hono matches '/runs' and '/runs/*' separately — both must be registered.
-for (const route of ['/runs', '/runs/*', '/drafts', '/drafts/*', '/stats']) {
+for (const route of [
+  '/runs',
+  '/runs/*',
+  '/drafts',
+  '/drafts/*',
+  '/brands',
+  '/brands/*',
+  '/stats',
+]) {
   app.use(route, requireAuth);
 }
 
@@ -114,8 +123,39 @@ app.post('/runs', async (c) => {
   const body = await c.req.json().catch(() => null);
   const parsed = BriefSchema.safeParse(body);
   if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+  // Reject up front rather than letting the strategist retrieve from a
+  // collection that does not exist.
+  const brand = await getBrand(parsed.data.brand_id);
+  if (!brand || brand.status !== 'active') {
+    return c.json({ error: 'unknown or inactive brand' }, 400);
+  }
   const threadId = startRun(parsed.data);
   return c.json({ thread_id: threadId }, 201);
+});
+
+app.get('/brands', async (c) => c.json(await listBrands()));
+
+app.get('/brands/:id', async (c) => {
+  const brand = await getBrand(c.req.param('id'));
+  if (!brand) return c.json({ error: 'brand not found' }, 404);
+  return c.json(brand);
+});
+
+const BrandPatchSchema = z.object({
+  name: z.string().min(1).optional(),
+  is_default: z.literal(true).optional(),
+});
+
+app.patch('/brands/:id', async (c) => {
+  const id = c.req.param('id');
+  if (!(await getBrand(id))) return c.json({ error: 'brand not found' }, 404);
+  const parsed = BrandPatchSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+  if (parsed.data.is_default) await setDefaultBrand(id);
+  const updated = parsed.data.name
+    ? await updateBrand(id, { name: parsed.data.name })
+    : await getBrand(id);
+  return c.json(updated);
 });
 
 app.get('/runs/:id', (c) => {

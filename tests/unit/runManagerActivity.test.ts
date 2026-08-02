@@ -42,6 +42,7 @@ const BRIEF: Brief = {
   tone: 'plain',
   word_count: 100,
   language: 'en',
+  brand_id: 'test-brand',
 };
 
 /** Report one activity and answer whether it reached the run's event log. */

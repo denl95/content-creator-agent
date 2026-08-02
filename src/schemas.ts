@@ -8,6 +8,7 @@ export const BriefSchema = z.object({
     .describe('Publishing channel that determines format and length rules'),
   tone: z.string().describe("Desired tone of voice, e.g. 'professional', 'casual', 'data-driven'"),
   word_count: z.number().int().positive().describe('Target word count for the final article'),
+  brand_id: z.string().min(1).describe('Brand whose corpus and voice this content follows'),
   language: z
     .string()
     .min(2)

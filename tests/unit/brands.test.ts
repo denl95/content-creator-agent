@@ -74,3 +74,84 @@ describe('brands', () => {
     expect(brand.collection_name).toMatch(/^brand_[a-zA-Z0-9._-]+$/);
   });
 });
+
+describe('brand endpoints', () => {
+  test('POST /runs rejects a brief naming an unknown brand', async () => {
+    await freshDb();
+    const { app } = await import('../../src/server');
+    const res = await app.request('/runs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        topic: 'T',
+        channel: 'blog',
+        tone: 'professional',
+        target_audience: 'A',
+        word_count: 500,
+        language: 'uk',
+        brand_id: 'does-not-exist',
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('unknown or inactive brand');
+  });
+
+  test('POST /runs rejects a brand that is not active', async () => {
+    await freshDb();
+    const draftBrand = await createBrand({ name: 'D', slug: 'd', language: 'uk' });
+    const { app } = await import('../../src/server');
+    const res = await app.request('/runs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        topic: 'T',
+        channel: 'blog',
+        tone: 'professional',
+        target_audience: 'A',
+        word_count: 500,
+        language: 'uk',
+        brand_id: draftBrand.id,
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test('GET /brands lists them, default first', async () => {
+    await freshDb();
+    await createBrand({ name: 'Zeta', slug: 'zeta', language: 'en', status: 'active' });
+    const first = await createBrand({
+      name: 'Alpha',
+      slug: 'alpha',
+      language: 'uk',
+      status: 'active',
+    });
+    await setDefaultBrand(first.id);
+    const { app } = await import('../../src/server');
+    const res = await app.request('/brands');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Array<{ name: string; is_default: boolean }>;
+    expect(body[0]?.name).toBe('Alpha');
+    expect(body[0]?.is_default).toBe(true);
+  });
+
+  test('PATCH /brands/:id renames and can set the default', async () => {
+    await freshDb();
+    const brand = await createBrand({ name: 'Old', slug: 'old', language: 'uk', status: 'active' });
+    const { app } = await import('../../src/server');
+    const res = await app.request(`/brands/${brand.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'New', is_default: true }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { name: string };
+    expect(body.name).toBe('New');
+    expect((await getDefaultBrand())?.id).toBe(brand.id);
+  });
+
+  test('GET /brands/:id 404s for an unknown id', async () => {
+    await freshDb();
+    const { app } = await import('../../src/server');
+    expect((await app.request('/brands/nope')).status).toBe(404);
+  });
+});

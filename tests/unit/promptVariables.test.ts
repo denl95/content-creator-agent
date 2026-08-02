@@ -9,6 +9,7 @@ const brief: Brief = {
   tone: 'professional',
   word_count: 900,
   language: 'uk',
+  brand_id: 'test-brand',
 };
 
 const plan: ContentPlan = {
@@ -61,6 +62,7 @@ describe('language', () => {
       channel: 'blog',
       tone: 'professional',
       word_count: 500,
+      brand_id: 'b1',
     });
     expect(parsed.language).toBe('uk');
   });
@@ -72,6 +74,7 @@ describe('language', () => {
       channel: 'blog',
       tone: 'professional',
       word_count: 500,
+      brand_id: 'b1',
       language: 'en',
     });
     expect(parsed.language).toBe('en');

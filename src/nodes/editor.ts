@@ -30,6 +30,7 @@ export async function editor(
   });
   const brandStyle = await lookupBrandStyle(
     `${state.brief.channel} tone of voice rules, forbidden phrases, style guide`,
+    state.brief.brand_id,
     threadId,
   );
   const prompt = await compileManagedPrompt(

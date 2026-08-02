@@ -3,6 +3,7 @@ import { parseArgs } from 'node:util';
 import 'dotenv/config';
 import { Command } from '@langchain/langgraph';
 import { z } from 'zod';
+import { getBrand, getDefaultBrand, listBrands } from './brands';
 import { CostTracker } from './costTracker';
 import { setDraftCost } from './db';
 import { graph } from './graph';
@@ -19,6 +20,7 @@ const ArgsSchema = z.object({
   audience: z.string().min(1),
   'word-count': z.coerce.number().int().positive(),
   language: z.string().min(2).default('uk'),
+  brand: z.string().optional(),
   verbose: z.boolean().default(false),
 });
 
@@ -32,6 +34,7 @@ Options:
   --audience    Target audience, e.g. "SMB owners" (required)
   --word-count  Target word count (required)
   --language    BCP-47 output language, e.g. uk | en (default: uk)
+  --brand       Brand id or slug to write for (default: the default brand)
   --verbose     Show tool-call details
 
 Example:
@@ -116,6 +119,7 @@ export async function main(): Promise<void> {
       audience: { type: 'string' },
       'word-count': { type: 'string' },
       language: { type: 'string' },
+      brand: { type: 'string' },
       verbose: { type: 'boolean', default: false },
     },
     strict: true,
@@ -133,6 +137,19 @@ export async function main(): Promise<void> {
   }
 
   const args = parsed.data;
+
+  const brand = args.brand
+    ? ((await getBrand(args.brand)) ?? (await listBrands()).find((b) => b.slug === args.brand))
+    : await getDefaultBrand();
+  if (!brand) {
+    console.error(
+      args.brand
+        ? `No brand matches "${args.brand}" by id or slug.`
+        : 'No default brand. Run "bun run seed-brand" first, or pass --brand <id>.',
+    );
+    process.exit(1);
+  }
+
   const brief = BriefSchema.parse({
     topic: args.topic,
     channel: args.channel,
@@ -140,6 +157,7 @@ export async function main(): Promise<void> {
     target_audience: args.audience,
     word_count: args['word-count'],
     language: args.language,
+    brand_id: brand.id,
   });
 
   const threadId = crypto.randomUUID();
