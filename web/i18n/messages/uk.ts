@@ -81,6 +81,21 @@ const uk: Messages = {
     reconnecting: 'Перепідключення…',
   },
 
+  runErrors: {
+    serverUnreachable: 'Сервер недоступний. Запуск усе ще очікує — спробуйте ще раз.',
+    serverRestarted: 'Сервер перезапустився або час очікування минув. Почніть новий запуск.',
+    serverRejected: 'Сервер відхилив запит',
+    runFailedTitle: 'Запуск не вдався',
+    runFailedBody: 'Запуск завершився помилкою.',
+    connectionLost: 'З’єднання втрачено',
+    cannotReachTitle: 'Не вдається зв’язатися із сервером',
+    cannotReachBody: 'Перевірте, чи запущено API, і спробуйте ще раз.',
+    couldNotStartTitle: 'Не вдалося почати запуск',
+    couldNotStartBody: 'Сервер прийняв бриф, але не повернув ідентифікатор запуску.',
+    noLongerActive: 'Запуск більше не активний',
+    couldNotSubmit: 'Не вдалося надіслати ваше рішення',
+  },
+
   brands: {
     title: 'Бренди',
     newBrand: 'Новий бренд',

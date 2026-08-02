@@ -84,6 +84,21 @@ const en = {
     reconnecting: 'Reconnecting…',
   },
 
+  runErrors: {
+    serverUnreachable: 'The server was unreachable. The run is still waiting — try again.',
+    serverRestarted: 'The server restarted or the run timed out. Start a new run.',
+    serverRejected: 'The server rejected the request',
+    runFailedTitle: 'Run failed',
+    runFailedBody: 'The run failed.',
+    connectionLost: 'Connection lost',
+    cannotReachTitle: 'Cannot reach the server',
+    cannotReachBody: 'Check that the API is running and try again.',
+    couldNotStartTitle: 'Could not start the run',
+    couldNotStartBody: 'The server accepted the brief but returned no run id.',
+    noLongerActive: 'Run no longer active',
+    couldNotSubmit: 'Could not submit your decision',
+  },
+
   brands: {
     title: 'Brands',
     newBrand: 'New brand',

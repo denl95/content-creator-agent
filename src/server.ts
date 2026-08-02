@@ -76,8 +76,10 @@ app.post('/auth/login', async (c) => {
   if (!isAuthEnabled()) return c.json({ ok: true });
   const body = await c.req.json().catch(() => null);
   const parsed = LoginSchema.safeParse(body);
-  if (!parsed.success) return c.json({ error: 'password required' }, 400);
-  if (!verifyPassword(parsed.data.password)) return c.json({ error: 'invalid password' }, 401);
+  if (!parsed.success)
+    return c.json({ error: 'password_required', message: 'password required' }, 400);
+  if (!verifyPassword(parsed.data.password))
+    return c.json({ error: 'invalid_password', message: 'invalid password' }, 401);
   setCookie(c, SESSION_COOKIE, sessionToken(), {
     httpOnly: true,
     sameSite: 'Lax',
@@ -92,13 +94,13 @@ app.get('/auth/check', (c) => {
   if (!isAuthEnabled()) return c.json({ ok: true });
   return verifySessionCookie(getCookie(c, SESSION_COOKIE))
     ? c.json({ ok: true })
-    : c.json({ error: 'unauthorized' }, 401);
+    : c.json({ error: 'unauthorized', message: 'unauthorized' }, 401);
 });
 
 const requireAuth: MiddlewareHandler = async (c, next) => {
   if (!isAuthEnabled()) return next();
   if (!verifySessionCookie(getCookie(c, SESSION_COOKIE))) {
-    return c.json({ error: 'unauthorized' }, 401);
+    return c.json({ error: 'unauthorized', message: 'unauthorized' }, 401);
   }
   return next();
 };
@@ -138,7 +140,7 @@ app.post('/runs', async (c) => {
   // collection that does not exist.
   const brand = await getBrand(parsed.data.brand_id);
   if (!brand || brand.status !== 'active') {
-    return c.json({ error: 'unknown or inactive brand' }, 400);
+    return c.json({ error: 'brand_inactive', message: 'unknown or inactive brand' }, 400);
   }
   // BriefSchema defaults language to 'uk', which is only right for the seeded
   // brand. An ingested English brand would otherwise get Ukrainian drafts that
@@ -157,7 +159,7 @@ app.get('/brands', async (c) => c.json(await listBrands()));
 
 app.get('/brands/:id', async (c) => {
   const brand = await getBrand(c.req.param('id'));
-  if (!brand) return c.json({ error: 'brand not found' }, 404);
+  if (!brand) return c.json({ error: 'brand_not_found', message: 'brand not found' }, 404);
   const documents = await getDb().brandDocument.findMany({
     where: { brandId: brand.id },
     orderBy: { createdAt: 'asc' },
@@ -173,7 +175,8 @@ const BrandPatchSchema = z.object({
 
 app.patch('/brands/:id', async (c) => {
   const id = c.req.param('id');
-  if (!(await getBrand(id))) return c.json({ error: 'brand not found' }, 404);
+  if (!(await getBrand(id)))
+    return c.json({ error: 'brand_not_found', message: 'brand not found' }, 404);
   const parsed = BrandPatchSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
   if (parsed.data.is_default) await setDefaultBrand(id);
@@ -185,7 +188,7 @@ app.patch('/brands/:id', async (c) => {
 
 app.get('/runs/:id', (c) => {
   const run = getRun(c.req.param('id'));
-  if (!run) return c.json({ error: 'run not found' }, 404);
+  if (!run) return c.json({ error: 'run_not_found', message: 'run not found' }, 404);
   return c.json(run);
 });
 
@@ -198,7 +201,14 @@ app.post('/runs/:id/resume', async (c) => {
     // `status` is what lets the client tell a run that is gone from one that has
     // already moved past the gate — a retried resume needs that distinction, and
     // it is knowledge only this handler has.
-    return c.json({ error: 'run not found or not awaiting approval', status: result.status }, 409);
+    return c.json(
+      {
+        error: 'run_not_awaiting',
+        message: 'run not found or not awaiting approval',
+        status: result.status,
+      },
+      409,
+    );
   }
   return c.json({ resumed: true });
 });
@@ -206,7 +216,7 @@ app.post('/runs/:id/resume', async (c) => {
 app.get('/runs/:id/events', (c) => {
   const id = c.req.param('id');
   const run = getRun(id);
-  if (!run) return c.json({ error: 'run not found' }, 404);
+  if (!run) return c.json({ error: 'run_not_found', message: 'run not found' }, 404);
   // `no-transform` is what stops an intermediary from gzipping this stream.
   // Next's proxy compresses proxied responses when the client sends
   // Accept-Encoding: gzip — every browser does, curl does not — and the gzip
@@ -297,19 +307,23 @@ app.post('/brands', async (c) => {
 
 app.post('/brands/:id/reingest', async (c) => {
   const brand = await getBrand(c.req.param('id'));
-  if (!brand) return c.json({ error: 'brand not found' }, 404);
+  if (!brand) return c.json({ error: 'brand_not_found', message: 'brand not found' }, 404);
   const stored = await getDb().brandSource.findMany({ where: { brandId: brand.id } });
   // A paste row written before bodies were persisted has nothing to replay.
   // Dropping it beats failing the whole re-ingest on one unusable source.
   const replayable = stored.filter((s) => s.kind !== 'paste' || (s.body ?? '').length > 0);
   if (replayable.length === 0) {
     return c.json(
-      {
-        error:
-          stored.length === 0
-            ? 'this brand has no stored sources to re-ingest'
-            : 'this brand has only pasted sources recorded before their text was stored — create it again',
-      },
+      stored.length === 0
+        ? {
+            error: 'brand_has_no_sources',
+            message: 'this brand has no stored sources to re-ingest',
+          }
+        : {
+            error: 'brand_paste_only',
+            message:
+              'this brand has only pasted sources recorded before their text was stored — create it again',
+          },
       409,
     );
   }
@@ -327,10 +341,13 @@ app.post('/brands/:id/reingest', async (c) => {
 
 app.delete('/brands/:id', async (c) => {
   const brand = await getBrand(c.req.param('id'));
-  if (!brand) return c.json({ error: 'brand not found' }, 404);
+  if (!brand) return c.json({ error: 'brand_not_found', message: 'brand not found' }, 404);
   if (brand.is_default) {
     return c.json(
-      { error: 'cannot delete the default brand — make another brand default first' },
+      {
+        error: 'brand_is_default',
+        message: 'cannot delete the default brand — make another brand default first',
+      },
       409,
     );
   }
@@ -345,17 +362,20 @@ app.get('/stats', async (c) => c.json(await getStats()));
 
 app.get('/drafts/:id', async (c) => {
   const draft = await getDraft(c.req.param('id'));
-  if (!draft) return c.json({ error: 'draft not found' }, 404);
+  if (!draft) return c.json({ error: 'draft_not_found', message: 'draft not found' }, 404);
   return c.json(draft);
 });
 
 app.post('/drafts/:id/publish', async (c) => {
   const draft = await getDraft(c.req.param('id'));
-  if (!draft) return c.json({ error: 'draft not found' }, 404);
+  if (!draft) return c.json({ error: 'draft_not_found', message: 'draft not found' }, 404);
   const databaseId = process.env.NOTION_DRAFTS_DATABASE_ID;
   if (!databaseId || !process.env.NOTION_TOKEN) {
     return c.json(
-      { error: 'Notion is not configured (NOTION_TOKEN, NOTION_DRAFTS_DATABASE_ID)' },
+      {
+        error: 'notion_not_configured',
+        message: 'Notion is not configured (NOTION_TOKEN, NOTION_DRAFTS_DATABASE_ID)',
+      },
       400,
     );
   }
@@ -371,7 +391,10 @@ app.post('/drafts/:id/publish', async (c) => {
     await setDraftNotionUrl(draft.id, page.url);
     return c.json({ url: page.url });
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 502);
+    return c.json(
+      { error: 'publish_failed', message: err instanceof Error ? err.message : String(err) },
+      502,
+    );
   }
 });
 

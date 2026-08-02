@@ -21,7 +21,7 @@ export function PublishButton({ draftId }: { draftId: string }) {
       router.refresh();
       return;
     }
-    setError(await errorMessage(res, m.errors.publishFailed));
+    setError(await errorMessage(res, m.errors.publishFailed, m));
   }
 
   return (

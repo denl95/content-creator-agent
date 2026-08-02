@@ -1,4 +1,4 @@
-import type { Locale } from '@/i18n/index';
+import type { Locale } from '../i18n/index';
 
 /** BCP-47 tags for Intl. 'en' alone would give US date order. */
 const INTL_LOCALE: Record<Locale, string> = { uk: 'uk-UA', en: 'en-GB' };

@@ -94,7 +94,7 @@ describe('brand endpoints', () => {
       }),
     });
     expect(res.status).toBe(400);
-    expect(((await res.json()) as { error: string }).error).toBe('unknown or inactive brand');
+    expect(((await res.json()) as { error: string }).error).toBe('brand_inactive');
   });
 
   test('POST /runs rejects a brand that is not active', async () => {
@@ -250,5 +250,19 @@ describe('brief language defaults', () => {
     // The run exists, which means the brief passed validation with the brand's
     // language rather than the schema's 'uk' default.
     expect(getRun(thread_id)).toBeDefined();
+  });
+});
+
+describe('error shape', () => {
+  test('an error carries both a stable code and readable prose', async () => {
+    await freshDb();
+    const { app } = await import('../../src/server');
+    const res = await app.request('/brands/nope');
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: string; message: string };
+    // The code is what the dashboard translates; the prose is what keeps the
+    // API self-explanatory to anyone reading it with curl.
+    expect(body.error).toBe('brand_not_found');
+    expect(body.message).toBe('brand not found');
   });
 });
