@@ -87,7 +87,7 @@ web/i18n/
   messages/en.ts     source of truth — its type defines the shape
   messages/uk.ts     typed as `typeof en`
   index.ts           Locale, LOCALES, DEFAULT_LOCALE, isLocale(), getMessages()
-  provider.tsx       MessagesProvider + useT() for Client Components
+  provider.tsx       MessagesProvider + useMessages() / useLocale() for Client Components
 ```
 
 `en.ts` is a nested object of plain strings. `uk.ts` is declared `const uk: typeof en = { ... }`, which makes a missing or misspelled key a **typecheck failure** rather than a blank space discovered in a demo. This is the entire reason for hand-rolling: a runtime catalogue lookup cannot give that guarantee.
