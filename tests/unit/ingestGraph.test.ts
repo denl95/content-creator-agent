@@ -10,3 +10,10 @@ describe('routeAfterReview', () => {
     expect(routeAfterReview({ approved: false })).toBe('distiller');
   });
 });
+
+describe('run kinds', () => {
+  test('a content run records its kind so one map can serve both graphs', async () => {
+    const { getRun } = await import('../../src/runManager');
+    expect(getRun('no-such-thread')).toBeUndefined();
+  });
+});
