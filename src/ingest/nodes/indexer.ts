@@ -37,12 +37,22 @@ export async function indexer(
       included: true,
     },
   });
-  for (const exemplar of distillation.exemplars) {
+  // A live ingest returned three of five exemplars with an empty title — the
+  // model treats it as optional when the source is one continuous page. The
+  // content is what matters, but the title is a heading in the UI, so it falls
+  // back to the opening words rather than rendering blank.
+  const exemplarTitle = (title: string, content: string, index: number): string => {
+    if (title.trim()) return title.trim();
+    const opening = content.trim().split('\n')[0]?.slice(0, 60).trim();
+    return opening ? `${opening}…` : `Exemplar ${index + 1}`;
+  };
+
+  for (const [index, exemplar] of distillation.exemplars.entries()) {
     await db.brandDocument.create({
       data: {
         brandId,
         kind: 'exemplar',
-        title: exemplar.title,
+        title: exemplarTitle(exemplar.title, exemplar.content, index),
         content: exemplar.content,
         included: true,
       },
