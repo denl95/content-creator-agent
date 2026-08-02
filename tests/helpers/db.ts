@@ -23,6 +23,41 @@ const DRAFTS_SCHEMA = `CREATE TABLE IF NOT EXISTS drafts (
   issues TEXT NOT NULL DEFAULT '[]',
   cost_usd REAL,
   notion_url TEXT,
+  brand_id TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`;
+
+const BRANDS_SCHEMA = `CREATE TABLE IF NOT EXISTS brands (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'draft',
+  is_default BOOLEAN NOT NULL DEFAULT false,
+  language TEXT NOT NULL DEFAULT 'en',
+  collection_name TEXT NOT NULL UNIQUE,
+  corpus_hash TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`;
+
+const BRAND_SOURCES_SCHEMA = `CREATE TABLE IF NOT EXISTS brand_sources (
+  id TEXT PRIMARY KEY,
+  brand_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  locator TEXT NOT NULL,
+  network TEXT,
+  page_count INTEGER NOT NULL DEFAULT 0,
+  fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`;
+
+const BRAND_DOCUMENTS_SCHEMA = `CREATE TABLE IF NOT EXISTS brand_documents (
+  id TEXT PRIMARY KEY,
+  brand_id TEXT NOT NULL,
+  source_id TEXT,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  included BOOLEAN NOT NULL DEFAULT true,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 )`;
 
@@ -49,7 +84,14 @@ export async function freshDb(): Promise<ReturnType<typeof getDb>> {
   }
   created.push(file);
   const db = getDb(`file:${file}`);
-  await db.$executeRawUnsafe(DRAFTS_SCHEMA);
+  for (const schema of [
+    DRAFTS_SCHEMA,
+    BRANDS_SCHEMA,
+    BRAND_SOURCES_SCHEMA,
+    BRAND_DOCUMENTS_SCHEMA,
+  ]) {
+    await db.$executeRawUnsafe(schema);
+  }
   return db;
 }
 
