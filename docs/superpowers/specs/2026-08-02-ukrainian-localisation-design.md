@@ -92,9 +92,11 @@ web/i18n/
 
 `en.ts` is a nested object of plain strings. `uk.ts` is declared `const uk: typeof en = { ... }`, which makes a missing or misspelled key a **typecheck failure** rather than a blank space discovered in a demo. This is the entire reason for hand-rolling: a runtime catalogue lookup cannot give that guarantee.
 
-Server Components take `locale` from `params` and call `getMessages(locale)` directly. The four Client Components that render copy — `BriefForm`, `PlanApproval`, `BrandReview`, and the `run` and `brands/new` pages — read it through `useT()`, backed by a context the locale layout provides. Passing messages down as props was rejected: the run page alone would thread them through three levels.
+Server Components take `locale` from `params` and call `getMessages(locale)` directly. The four Client Components that render copy — `BriefForm`, `PlanApproval`, `BrandReview`, and the `run` and `brands/new` pages — read it through `useMessages()`, backed by a context the locale layout provides. Passing messages down as props was rejected: the run page alone would thread them through three levels.
 
-Interpolation is a single helper, `t('key', { count: 3 })`, doing `{name}` replacement. No pluralisation engine: the few counted strings are handled by writing both forms explicitly, because Ukrainian has three plural forms and a naive `n === 1` rule would be wrong in a way English does not reveal.
+**Messages are read as properties, not by string key** — `m.nav.brands`, never `t('nav.brands')`. Property access gives autocomplete and turns a typo into a typecheck failure; a key-path lookup can give neither without a parser and elaborate template types.
+
+Interpolating messages are therefore **functions** rather than strings with placeholders: `m.run.result({ cost, tokens })`. Their argument types are checked at each call site for free, and word order stays the translator's to choose — which matters, since Ukrainian will not follow English order. No pluralisation engine: the few counted strings are written out per form, because Ukrainian has three plural forms and a naive `n === 1` rule would be wrong in a way English testing never reveals.
 
 `web/lib/format.ts` currently hardcodes English formatting. `formatDate` and `formatUsd` take the locale and pass it to `Intl.DateTimeFormat` / `Intl.NumberFormat`.
 
