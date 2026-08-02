@@ -86,4 +86,12 @@ describe('drafts db', () => {
     expect(row?.created_at).toBeTypeOf('string');
     expect(row?.created_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
+
+  test('brand_id round-trips so the dashboard can attribute a draft', async () => {
+    await freshDb();
+    await insertDraft({ ...sampleDraft('b1'), brand_id: 'brand-xyz' });
+    expect((await getDraft('b1'))?.brand_id).toBe('brand-xyz');
+    await insertDraft(sampleDraft('b2'));
+    expect((await getDraft('b2'))?.brand_id).toBeNull();
+  });
 });

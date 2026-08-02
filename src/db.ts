@@ -18,10 +18,15 @@ export type DraftRow = {
   cost_usd: number | null;
   notion_url: string | null;
   created_at: string;
+  brand_id: string | null;
 };
 
-export type NewDraft = Omit<DraftRow, 'issues' | 'cost_usd' | 'notion_url' | 'created_at'> & {
+export type NewDraft = Omit<
+  DraftRow,
+  'issues' | 'cost_usd' | 'notion_url' | 'created_at' | 'brand_id'
+> & {
   issues: string[];
+  brand_id?: string | null;
 };
 
 let client: PrismaClient | null = null;
@@ -59,6 +64,7 @@ type PrismaDraft = {
   costUsd: number | null;
   notionUrl: string | null;
   createdAt: Date;
+  brandId: string | null;
 };
 
 /**
@@ -85,6 +91,7 @@ function toDraftRow(d: PrismaDraft): DraftRow {
     cost_usd: d.costUsd,
     notion_url: d.notionUrl,
     created_at: d.createdAt.toISOString().replace('T', ' ').slice(0, 19),
+    brand_id: d.brandId,
   };
 }
 
@@ -104,6 +111,7 @@ export async function insertDraft(draft: NewDraft): Promise<void> {
       structureScore: draft.structure_score,
       iterations: draft.iterations,
       issues: JSON.stringify(draft.issues),
+      brandId: draft.brand_id ?? null,
     },
   });
 }
