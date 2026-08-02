@@ -19,6 +19,7 @@
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:status": "prisma migrate status",
+    "seed-brand": "bun run scripts/seed-brand.ts",
     "reindex": "bun run scripts/reindex.ts",
     "upload-prompts": "bun run scripts/upload-prompts.ts",
     "upload-brand": "bun run scripts/upload-brand.ts"
