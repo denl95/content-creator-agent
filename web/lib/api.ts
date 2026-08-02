@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import type { Brand, DraftRow } from './types';
+import type { Brand, BrandDetail, DraftRow } from './types';
 
 const API_ORIGIN = process.env.API_ORIGIN ?? 'http://localhost:3000';
 
@@ -50,4 +50,8 @@ export async function fetchStats(): Promise<Stats> {
 
 export async function fetchBrands(): Promise<Brand[]> {
   return (await get<Brand[]>('/brands')) ?? [];
+}
+
+export async function fetchBrand(id: string): Promise<BrandDetail | null> {
+  return get<BrandDetail>(`/brands/${id}`);
 }

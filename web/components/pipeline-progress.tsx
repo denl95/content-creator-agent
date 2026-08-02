@@ -1,9 +1,18 @@
 import { NODES } from '@/lib/types';
 
-export function PipelineProgress({ done, active }: { done: Set<string>; active: string | null }) {
+export function PipelineProgress({
+  done,
+  active,
+  nodes = NODES,
+}: {
+  done: Set<string>;
+  active: string | null;
+  /** Defaults to the content pipeline; the ingest screen passes INGEST_NODES. */
+  nodes?: string[];
+}) {
   return (
     <div className="flex flex-wrap gap-2">
-      {NODES.map((node) => {
+      {nodes.map((node) => {
         const state = done.has(node) ? 'done' : node === active ? 'active' : 'idle';
         return (
           // EONYX: angular, not rounded — pipeline steps are structural, not status
