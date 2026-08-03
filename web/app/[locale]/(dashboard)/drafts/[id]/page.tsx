@@ -3,6 +3,7 @@ import { PublishButton } from '@/components/publish-button';
 import { StatTile } from '@/components/stat-tile';
 import { VerdictBadge } from '@/components/verdict-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getMessages, type Locale } from '@/i18n/index';
 import { fetchBrands, fetchDraft } from '@/lib/api';
 import { formatDate, formatUsd } from '@/lib/format';
 
@@ -15,8 +16,14 @@ function parseIssues(raw: string): string[] {
   }
 }
 
-export default async function DraftDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function DraftDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string; locale: Locale }>;
+}) {
+  // params is a Promise in Next 16.
+  const { id, locale } = await params;
+  const m = getMessages(locale);
   const [draft, brands] = await Promise.all([fetchDraft(id), fetchBrands()]);
   if (!draft) notFound();
 
@@ -35,25 +42,25 @@ export default async function DraftDetailPage({ params }: { params: Promise<{ id
         </div>
         <p className="text-sm text-muted-foreground">
           {brandLabel}{draft.channel} · {draft.tone} · {draft.audience} ·{' '}
-          {formatDate(draft.created_at)}
+          {formatDate(draft.created_at, locale)}
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Words" value={String(draft.word_count)} />
-        <StatTile label="Cost" value={formatUsd(draft.cost_usd)} />
-        <StatTile label="Iterations" value={String(draft.iterations)} />
+        <StatTile label={m.common.words} value={String(draft.word_count)} />
+        <StatTile label={m.common.cost} value={formatUsd(draft.cost_usd, locale)} />
+        <StatTile label={m.common.iterations} value={String(draft.iterations)} />
         <StatTile
-          label="Scores"
+          label={m.common.scores}
           value={`${score(draft.tone_score)} / ${score(draft.accuracy_score)} / ${score(draft.structure_score)}`}
-          hint="tone / accuracy / structure"
+          hint={m.drafts.scoresHint}
         />
       </div>
 
       {issues.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Editor issues</CardTitle>
+            <CardTitle className="text-base">{m.drafts.editorIssues}</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
@@ -67,7 +74,7 @@ export default async function DraftDetailPage({ params }: { params: Promise<{ id
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Content</CardTitle>
+          <CardTitle className="text-base">{m.drafts.content}</CardTitle>
         </CardHeader>
         <CardContent>
           <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
@@ -83,7 +90,7 @@ export default async function DraftDetailPage({ params }: { params: Promise<{ id
           rel="noreferrer"
           className="inline-block text-sm underline"
         >
-          Open in Notion →
+          {m.drafts.openNotion}
         </a>
       ) : (
         <PublishButton draftId={draft.id} />

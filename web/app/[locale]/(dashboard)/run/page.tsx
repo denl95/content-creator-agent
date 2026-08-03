@@ -8,6 +8,8 @@ import { PipelineProgress } from '@/components/pipeline-progress';
 import { PlanApproval } from '@/components/plan-approval';
 import { RunError, type RunFailure } from '@/components/run-error';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Messages } from '@/i18n/index';
+import { useLocale, useMessages } from '@/i18n/provider';
 import { errorMessage } from '@/lib/errors';
 import { formatElapsed, formatUsd } from '@/lib/format';
 import { type Brand, type ContentPlan, type EditFeedback, NODES, type RunEvent } from '@/lib/types';
@@ -55,7 +57,12 @@ type Submission = { ok: true } | { ok: false; gate: Gate; message: string };
  * a rejected decision is classified without a second round-trip; only a genuine
  * transport failure has to ask.
  */
-async function submitDecision(id: string, approved: boolean, note?: string): Promise<Submission> {
+async function submitDecision(
+  id: string,
+  approved: boolean,
+  messages: Messages,
+  note?: string,
+): Promise<Submission> {
   let res: Response;
   try {
     res = await fetch(`/api/runs/${id}/resume`, {
@@ -67,7 +74,7 @@ async function submitDecision(id: string, approved: boolean, note?: string): Pro
     return {
       ok: false,
       gate: await fetchGate(id),
-      message: 'The server was unreachable. The run is still waiting — try again.',
+      message: messages.runErrors.serverUnreachable,
     };
   }
   if (res.ok) return { ok: true };
@@ -76,13 +83,13 @@ async function submitDecision(id: string, approved: boolean, note?: string): Pro
     return {
       ok: false,
       gate: gateFromStatus(body?.status ?? null),
-      message: 'The server restarted or the run timed out. Start a new run.',
+      message: messages.runErrors.serverRestarted,
     };
   }
   return {
     ok: false,
     gate: await fetchGate(id),
-    message: await errorMessage(res, 'The server rejected the request'),
+    message: await errorMessage(res, messages.runErrors.serverRejected, messages),
   };
 }
 
@@ -102,6 +109,8 @@ export default function RunPage() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   // null until the request settles, so the form can tell loading from empty.
   const [brands, setBrands] = useState<Brand[] | null>(null);
+  const m = useMessages();
+  const locale = useLocale();
 
   // The API sorts the default brand first, so the initial option is correct
   // without the client tracking a default of its own.
@@ -177,7 +186,10 @@ export default function RunPage() {
       stop();
     }
     if (event.node === 'error') {
-      stop({ title: 'Run failed', message: event.data.message ?? 'The run failed.' });
+      stop({
+        title: m.runErrors.runFailedTitle,
+        message: event.data.message ?? m.runErrors.runFailedBody,
+      });
     }
   }
 
@@ -204,7 +216,7 @@ export default function RunPage() {
       // own, so say so rather than declaring failure.
       if (es.readyState === EventSource.CLOSED) {
         stop({
-          title: 'Connection lost',
+          title: m.runErrors.connectionLost,
           message:
             'Lost the connection to this run and could not reconnect. If the server restarted, the run is gone — but any finished draft is still saved under Drafts.',
           retry: true,
@@ -262,15 +274,15 @@ export default function RunPage() {
       });
     } catch {
       stop({
-        title: 'Cannot reach the server',
-        message: 'Check that the API is running and try again.',
+        title: m.runErrors.cannotReachTitle,
+        message: m.runErrors.cannotReachBody,
       });
       return;
     }
     if (!res.ok) {
       stop({
-        title: 'Could not start the run',
-        message: await errorMessage(res, 'Could not start the run'),
+        title: m.runErrors.couldNotStartTitle,
+        message: await errorMessage(res, m.runErrors.couldNotStartTitle, m),
       });
       return;
     }
@@ -279,8 +291,8 @@ export default function RunPage() {
     const body = (await res.json().catch(() => null)) as { thread_id?: unknown } | null;
     if (typeof body?.thread_id !== 'string') {
       stop({
-        title: 'Could not start the run',
-        message: 'The server accepted the brief but returned no run id.',
+        title: m.runErrors.couldNotStartTitle,
+        message: m.runErrors.couldNotStartBody,
       });
       return;
     }
@@ -296,24 +308,24 @@ export default function RunPage() {
     setPlan(null);
     setActive('writer');
 
-    const outcome = await submitDecision(threadId, approved, note);
+    const outcome = await submitDecision(threadId, approved, m, note);
     if (outcome.ok || outcome.gate === 'moved') {
       setPlanNote('');
       follow(threadId);
       return;
     }
     if (outcome.gate === 'gone') {
-      stop({ title: 'Run no longer active', message: outcome.message });
+      stop({ title: m.runErrors.noLongerActive, message: outcome.message });
       return;
     }
     setPlan(submitted);
     setPlanNote(note ?? '');
-    stop({ title: 'Could not submit your decision', message: outcome.message });
+    stop({ title: m.runErrors.couldNotSubmit, message: outcome.message });
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">New run</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{m.run.title}</h1>
 
       <BriefForm running={running} brands={brands} onSubmit={start} />
 
@@ -325,16 +337,22 @@ export default function RunPage() {
             activity log below carries role="log" instead. */}
         {running || activity.length > 0 ? (
           <p className="eonyx-label flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="tabular-nums">{formatElapsed(elapsed)} elapsed</span>
+            <span className="tabular-nums">
+              {formatElapsed(elapsed)} {m.run.elapsed}
+            </span>
             {latest ? (
               <>
                 <span aria-hidden>·</span>
-                <span className="tabular-nums">{(latest.tokens ?? 0).toLocaleString()} tokens</span>
+                <span className="tabular-nums">
+                  {(latest.tokens ?? 0).toLocaleString()} {m.run.tokens}
+                </span>
                 <span aria-hidden>·</span>
-                <span className="tabular-nums">{formatUsd(latest.costUsd ?? 0)}</span>
+                <span className="tabular-nums">{formatUsd(latest.costUsd ?? 0, locale)}</span>
               </>
             ) : null}
-            {reconnecting ? <span className="text-state-revision">· reconnecting…</span> : null}
+            {reconnecting ? (
+              <span className="text-state-revision">· {m.run.reconnecting}</span>
+            ) : null}
           </p>
         ) : null}
 
@@ -343,8 +361,12 @@ export default function RunPage() {
 
       {feedback ? (
         <p className="text-sm text-muted-foreground">
-          editor: {feedback.verdict} · tone {feedback.tone_score} · accuracy{' '}
-          {feedback.accuracy_score} · structure {feedback.structure_score}
+          {m.run.editorLine({
+            verdict: feedback.verdict,
+            tone: feedback.tone_score,
+            accuracy: feedback.accuracy_score,
+            structure: feedback.structure_score,
+          })}
         </p>
       ) : null}
 
@@ -367,15 +389,18 @@ export default function RunPage() {
       {result && threadId ? (
         <Card>
           <CardHeader>
-            <CardTitle>Done</CardTitle>
+            <CardTitle>{m.run.done}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              {formatUsd(result.costUsd)} · {result.tokens.toLocaleString()} tokens ·{' '}
-              {formatElapsed(elapsed)}
+              {m.run.result({
+                cost: formatUsd(result.costUsd, locale),
+                tokens: result.tokens,
+              })}{' '}
+              · {formatElapsed(elapsed)}
             </p>
-            <Link href={`/drafts/${threadId}`} className="text-sm underline">
-              Open the finished draft →
+            <Link href={`/${locale}/drafts/${threadId}`} className="text-sm underline">
+              {m.run.openDraft}
             </Link>
           </CardContent>
         </Card>

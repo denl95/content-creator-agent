@@ -3,9 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { Logo } from '@/components/logo';
+import { useLocale, useMessages } from '@/i18n/provider';
 
 export default function LoginPage() {
   const router = useRouter();
+  const m = useMessages();
+  const locale = useLocale();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
@@ -21,11 +24,11 @@ export default function LoginPage() {
     });
     setPending(false);
     if (res.ok) {
-      router.push('/');
+      router.push(`/${locale}`);
       router.refresh();
       return;
     }
-    setError('Incorrect password');
+    setError(m.login.failed);
   }
 
   return (
@@ -36,13 +39,13 @@ export default function LoginPage() {
           <Logo variant="wordmark" height={28} />
           <p className="eonyx-kicker">AI Content Pipeline</p>
         </div>
-        <p className="text-sm text-muted-foreground">Enter the demo password to continue.</p>
+        <p className="text-sm text-muted-foreground">{m.login.intro}</p>
         <input
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className="h-10.5 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
-          placeholder="Password"
+          placeholder={m.login.password}
         />
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <button
@@ -50,7 +53,7 @@ export default function LoginPage() {
           disabled={pending || password.length === 0}
           className="h-10.5 w-full rounded-sm bg-primary font-mono text-[11px] uppercase tracking-[0.16em] text-primary-foreground transition-colors hover:bg-(--accent-hover) disabled:opacity-40"
         >
-          {pending ? 'Checking…' : 'Enter'}
+          {pending ? m.login.checking : m.login.submit}
         </button>
       </form>
     </main>
