@@ -84,6 +84,22 @@ Prisma 7 also removed `url` from the `datasource` block — it lives in `prisma.
 
 `brandStyleRetriever` is now `makeBrandStyleRetriever(brandId)`: `createAgent` binds tools at construction, so a module-scope tool cannot see which brand a run is for. Keep `reportActivity` **inside** `lookupBrandStyle` — the Editor calls it directly with no agent in between, so reporting from the tool wrapper would silence half the lookups.
 
+### Brand ingestion is a second LangGraph graph
+
+`src/ingest/graph.ts` compiles `fetcher → distiller → review → indexer`, driven by the same `runManager` as the content graph and told apart by a `kind` discriminator on the run record. The review gate emits as node **`'hitl'`**, exactly like plan approval — the payload's own `kind` (`plan_approval` vs `brand_approval`) is what tells the client which card to render, which is why `/brands/new` reuses `/run`'s SSE handling rather than duplicating it. The review loop is **uncapped**; only writer↔editor has an iteration limit.
+
+The distiller emits the same triple the corpus has always had — profile, style guide, exemplars — rendered by `src/ingest/render.ts` into the shape of `data/brand/brand.md` and `style_guide.md`. That is what lets both prompts, the chunking and retrieval stay untouched: an ingested brand is indistinguishable from a hand-written one downstream.
+
+Three things about extraction that a live crawl of eonyx.net taught, all of which look like details and are not:
+
+- **`HTMLRewriter` does not decode entities.** The site returned `R&amp;D-студія`, and a Ukrainian style guide returns `&laquo;революційний&raquo;` — the guillemet form of a phrase that is literally on the forbidden list. `decodeEntities()` runs on everything before it is stored.
+- **Text must be spaced at element boundaries.** Without it, adjacent inline elements concatenate: the same crawl produced `студіяз впровадження` and `данихб'є по грошах`. A glued exemplar is worthless as evidence of how a brand writes.
+- **The URL's path scopes the crawl.** `eonyx.net/uk` stays in that section; `eonyx.net` takes everything. Unscoped, the crawl returned `/uk` in Ukrainian *and* `/en` in English plus two privacy policies — a mixed-language corpus that would defeat the `{{language}}` mechanism entirely. Legal and transactional paths are excluded outright.
+
+`raw_page` documents are stored with `included = false`: provenance you can trace a claim back to, never embedded. Re-ingestion replaces a brand's documents rather than appending, so it is idempotent.
+
+**`bun run upload-prompts` was not idempotent until 2026-08-02.** Prompt names contain a slash, `encodeURIComponent` made the lookup 404, and the 404 was caught as "does not exist yet" — so every run created a new version of every prompt regardless of changes. If you see version numbers climbing without edits, that regression is back.
+
 ### Drafts persist to the database, not files, by default
 `src/db.ts` is the source of truth — `finalizer.ts` always inserts a row keyed by `thread_id`, so re-running the same topic never collides. Writing to `./output/*.md` is opt-in via `WRITE_OUTPUT_FILES=true`. Notion publishing is optional and best-effort: the `publisher` graph node auto-publishes only if `NOTION_TOKEN` + `NOTION_DRAFTS_DATABASE_ID` are set (and `SKIP_PUBLISH` isn't `true`); a failure there never loses the draft since the DB row already exists. `POST /drafts/:id/publish` lets the web UI publish on demand instead of relying on the automatic graph step.
 

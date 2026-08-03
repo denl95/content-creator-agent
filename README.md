@@ -197,6 +197,8 @@ Starts the Hono API on `:3000` and the Next.js dashboard on `http://localhost:30
 |---|---|
 | `/` | Stat tiles, spend-over-time and drafts-per-channel charts, recent drafts |
 | `/run` | Submit a brief, watch the pipeline live, approve or revise the plan |
+| `/brands` | Every brand, with status, language and default marker |
+| `/brands/new` | Ingest a brand from a website, feed or pasted posts — watch it crawl, distil and pause for review |
 | `/drafts` | Every draft ever generated, with verdict, word count and cost |
 | `/drafts/[id]` | Full content, editor scores and issues, publish to Notion |
 

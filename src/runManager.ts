@@ -3,11 +3,16 @@ import { clearActivitySink, setActivitySink } from './activity';
 import { CostTracker } from './costTracker';
 import { setDraftCost } from './db';
 import { graph } from './graph';
+import { ingestGraph } from './ingest/graph';
+import { type IngestRequest, makeIngestState } from './ingest/state';
 import type { Brief } from './schemas';
 import { makeInitialState } from './state';
 import { resetSearchCount } from './tools/search';
 
 export type RunStatus = 'running' | 'awaiting_approval' | 'done' | 'error';
+
+/** Which graph a run drives. The record carries it so one map serves both. */
+export type RunKind = 'content' | 'ingest';
 
 /** The run has finished, one way or the other, and will emit nothing further. */
 export function isTerminal(status: RunStatus): boolean {
@@ -26,6 +31,7 @@ export type RunEvent = { node: string; data: unknown; ts: number; seq: number };
 
 export type RunRecord = {
   threadId: string;
+  kind: RunKind;
   status: RunStatus;
   interruptPayload: unknown;
   events: RunEvent[];
@@ -66,7 +72,7 @@ function emit(run: InternalRun, node: string, data: unknown): void {
   }
 }
 
-function summarize(node: string, value: unknown): unknown {
+function summarizeContent(node: string, value: unknown): unknown {
   const v = value as Record<string, unknown>;
   if (node === 'strategist') return { plan: v.plan };
   if (node === 'writer') {
@@ -77,6 +83,34 @@ function summarize(node: string, value: unknown): unknown {
   if (node === 'publisher') return { notionUrl: v.notionUrl ?? null };
   return {};
 }
+
+function summarizeIngest(node: string, value: unknown): unknown {
+  const v = value as Record<string, unknown>;
+  if (node === 'fetcher') {
+    const docs = v.rawDocs as unknown[] | undefined;
+    return { documents: docs?.length ?? 0 };
+  }
+  if (node === 'distiller') return { distilled: Boolean(v.distillation) };
+  return {};
+}
+
+type RunnerSpec = {
+  // biome-ignore lint/suspicious/noExplicitAny: two compiled graphs with different state shapes
+  graph: any;
+  summarize: (node: string, value: unknown) => unknown;
+  onDone?: (threadId: string, tracker: CostTracker) => Promise<void>;
+};
+
+const SPECS: Record<RunKind, RunnerSpec> = {
+  content: {
+    graph,
+    summarize: summarizeContent,
+    onDone: async (threadId, tracker) => {
+      await setDraftCost(threadId, tracker.costUsd());
+    },
+  },
+  ingest: { graph: ingestGraph, summarize: summarizeIngest },
+};
 
 // biome-ignore lint/suspicious/noExplicitAny: graph.stream accepts either partial state or a Command; matches the pattern in src/cli.ts
 async function drive(run: InternalRun, input: any): Promise<void> {
@@ -96,7 +130,8 @@ async function drive(run: InternalRun, input: any): Promise<void> {
   try {
     run.status = 'running';
     let interrupted = false;
-    const stream = await graph.stream(input, config);
+    const spec = SPECS[run.kind];
+    const stream = await spec.graph.stream(input, config);
     for await (const chunk of stream) {
       for (const [node, value] of Object.entries(chunk)) {
         if (node === '__interrupt__') {
@@ -104,7 +139,7 @@ async function drive(run: InternalRun, input: any): Promise<void> {
           run.interruptPayload = (value as Array<{ value: unknown }>)[0]?.value ?? null;
           continue;
         }
-        emit(run, node, summarize(node, value));
+        emit(run, node, SPECS[run.kind].summarize(node, value));
       }
       if (run.tracker.overBudget()) {
         throw new Error(`Token budget exceeded (${run.tracker.totalTokens()} tokens)`);
@@ -115,7 +150,7 @@ async function drive(run: InternalRun, input: any): Promise<void> {
       emit(run, 'hitl', { awaiting: true, payload: run.interruptPayload });
     } else {
       run.status = 'done';
-      await setDraftCost(run.threadId, run.tracker.costUsd());
+      await SPECS[run.kind].onDone?.(run.threadId, run.tracker);
       emit(run, 'done', {
         costUsd: run.tracker.costUsd(),
         tokens: run.tracker.totalTokens(),
@@ -133,10 +168,11 @@ async function drive(run: InternalRun, input: any): Promise<void> {
   }
 }
 
-export function startRun(brief: Brief): string {
-  const threadId = crypto.randomUUID();
-  const run: InternalRun = {
+/** Shared so the two entry points cannot drift in what a fresh record holds. */
+function newRun(threadId: string, kind: RunKind): InternalRun {
+  return {
     threadId,
+    kind,
     status: 'running',
     interruptPayload: null,
     events: [],
@@ -145,9 +181,22 @@ export function startRun(brief: Brief): string {
     nextSeq: 0,
     createdAt: Date.now(),
   };
+}
+
+export function startRun(brief: Brief): string {
+  const threadId = crypto.randomUUID();
+  const run = newRun(threadId, 'content');
   runs.set(threadId, run);
   resetSearchCount(threadId);
   void drive(run, makeInitialState(brief));
+  return threadId;
+}
+
+export function startIngest(request: IngestRequest): string {
+  const threadId = crypto.randomUUID();
+  const run = newRun(threadId, 'ingest');
+  runs.set(threadId, run);
+  void drive(run, makeIngestState(request));
   return threadId;
 }
 
@@ -169,7 +218,7 @@ export function sweepStaleRuns(now = Date.now()): number {
 
 export function resumeRun(
   threadId: string,
-  decision: { approved: boolean; feedback?: string },
+  decision: { approved: boolean; feedback?: string; edits?: Record<string, unknown> },
 ): ResumeResult {
   const run = runs.get(threadId);
   if (!run) return { resumed: false, status: null };

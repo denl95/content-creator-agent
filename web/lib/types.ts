@@ -85,3 +85,34 @@ export type DraftRow = {
   notion_url: string | null;
   created_at: string;
 };
+
+export type BrandDocument = {
+  id: string;
+  kind: 'profile' | 'style_guide' | 'exemplar' | 'raw_page';
+  title: string;
+  content: string;
+  included: boolean;
+};
+
+export type BrandDetail = Brand & { documents: BrandDocument[] };
+
+export type BrandProfilePayload = {
+  name: string;
+  mission: string;
+  services: string[];
+  audience_primary: string;
+  audience_secondary: string;
+  positioning: string;
+  channels: Array<{ channel: string; description: string; word_range: string; cadence: string }>;
+};
+
+export type StyleGuidePayload = {
+  voice: string[];
+  forbidden_phrases: string[];
+  preferred_constructions: string[];
+  formatting_rules: string[];
+  language: string;
+};
+
+/** Ingest steps, deliberately separate from NODES. */
+export const INGEST_NODES = ['fetcher', 'distiller', 'review', 'indexer'];
