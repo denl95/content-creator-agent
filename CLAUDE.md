@@ -104,6 +104,8 @@ Three things about extraction that a live crawl of eonyx.net taught, all of whic
 `src/db.ts` is the source of truth — `finalizer.ts` always inserts a row keyed by `thread_id`, so re-running the same topic never collides. Writing to `./output/*.md` is opt-in via `WRITE_OUTPUT_FILES=true`. Notion publishing is optional and best-effort: the `publisher` graph node auto-publishes only if `NOTION_TOKEN` + `NOTION_DRAFTS_DATABASE_ID` are set (and `SKIP_PUBLISH` isn't `true`); a failure there never loses the draft since the DB row already exists. `POST /drafts/:id/publish` lets the web UI publish on demand instead of relying on the automatic graph step.
 
 ### Reference docs
+`ARCHITECTURE.md` is the authoritative map of how the pieces fit: the two graphs, the dependency rules between `src/` directories, the cross-cutting machinery, and one documented boundary crossing. Read it before adding a node, a fetcher or a vector backend — drift from it is a bug, and it should be regenerated after any structural change.
+
 `docs/superpowers/specs/` and `docs/superpowers/plans/` capture the design rationale behind several non-obvious decisions — check there before re-litigating something that looks like it should obviously be different:
 
 - `2026-07-15-mvp-client-demo-*` — why the checkpointer is still `MemorySaver`, why Notion became optional, the run-cleanup TTL policy

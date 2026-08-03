@@ -8,6 +8,8 @@ A multi-agent system that plans, writes, and edits blog posts and social media c
 
 ## Architecture
 
+**[ARCHITECTURE.md](ARCHITECTURE.md)** maps the whole system — the two LangGraph pipelines, dependency rules, persistence, retrieval and deployment. The diagram below is just the content pipeline.
+
 ```mermaid
 flowchart LR
     START --> Strategist
