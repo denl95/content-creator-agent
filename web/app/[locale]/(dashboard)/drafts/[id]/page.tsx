@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { DraftActions } from '@/components/draft-actions';
 import { Markdown } from '@/components/markdown';
 import { PublishButton } from '@/components/publish-button';
 import { StatTile } from '@/components/stat-tile';
@@ -79,6 +80,9 @@ export default async function DraftDetailPage({
         </CardHeader>
         <CardContent>
           <Markdown source={draft.content} />
+          <div className="mt-4 border-t border-border/60 pt-4">
+            <DraftActions topic={draft.topic} id={draft.id} content={draft.content} />
+          </div>
         </CardContent>
       </Card>
 

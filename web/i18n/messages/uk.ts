@@ -145,6 +145,10 @@ const uk: Messages = {
     openNotion: 'Відкрити в Notion →',
     publish: 'Опублікувати в Notion',
     publishing: 'Публікація…',
+    copy: 'Копіювати markdown',
+    copied: 'Скопійовано',
+    copyFailed: 'Не вдалося скопіювати. Виділіть текст і скопіюйте вручну.',
+    download: 'Завантажити .md',
   },
 
   login: {

@@ -53,3 +53,23 @@ export function formatClock(ts: number, locale: Locale): string {
   }
   return clock.format(ts);
 }
+
+/**
+ * Filename-safe slug for a draft download.
+ *
+ * Deliberately duplicated from `slugify` in `src/nodes/finalizer.ts` rather
+ * than shared: the two apps share no code, `web/` has its own bundler root, and
+ * importing across that boundary would break the standalone build. Four lines
+ * is cheaper than the coupling — but if the convention changes, change both.
+ *
+ * `\p{L}\p{N}` rather than `[a-z0-9]`, so a Ukrainian topic yields a real
+ * filename instead of an empty string.
+ */
+export function slugifyTopic(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60)
+    .replace(/-$/, '');
+}

@@ -149,6 +149,10 @@ const en = {
     openNotion: 'Open in Notion →',
     publish: 'Publish to Notion',
     publishing: 'Publishing…',
+    copy: 'Copy markdown',
+    copied: 'Copied',
+    copyFailed: 'Could not copy. Select the text and copy it manually.',
+    download: 'Download .md',
   },
 
   login: {
