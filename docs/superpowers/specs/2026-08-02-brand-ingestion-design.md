@@ -54,7 +54,7 @@ Two properties of the existing system make this cheaper than it looks:
 | One brand or many? | A library, selectable per run | Ingesting a prospect's brand must not destroy EONYX's own |
 | Sources for v1 | Website, RSS, paste, and paid social | All four requested; social degrades to unavailable without a token |
 | Ingestion engine | A second LangGraph graph | Inherits `interrupt()`, Langfuse tracing, `CostTracker` and the SSE pattern |
-| SQLite driver | `@prisma/adapter-libsql` | Official, no native module, and later swaps to hosted Turso |
+| SQLite driver | `@prisma/adapter-libsql` (class `PrismaLibSql`) | Official, no native module, and later swaps to hosted Turso. Verified on 7.9.1 under Bun |
 | Language mismatch | Fixed separately and first, as §0 | The current demo is broken today; it should not wait for phase 2 |
 | Deployment of phase 1 | Held until phase 2 is ready | One deploy rather than two on a machine that goes down on every deploy |
 | Review gate | Mandatory, no skip path | It is the governance claim the product is sold on |
@@ -84,6 +84,19 @@ Both graphs are driven by the same `runManager`, share one `runs` map and one SS
 
 `DATABASE_URL` (a `file:` libSQL URL) replaces `DRAFTS_DB_PATH`.
 
+Prisma 7 removed `url` from the `datasource` block: migration commands read it from `prisma.config.ts`, and the client receives an adapter instance instead. Verified against 7.9.1.
+
+```ts
+// prisma.config.ts
+import { defineConfig, env } from 'prisma/config';
+
+export default defineConfig({
+  schema: 'prisma/schema.prisma',
+  migrations: { path: 'prisma/migrations' },
+  datasource: { url: env('DATABASE_URL') },
+});
+```
+
 ```prisma
 generator client {
   provider = "prisma-client"
@@ -92,7 +105,6 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model Brand {
@@ -181,13 +193,13 @@ Four decisions embedded above:
 
 **`Draft.brandId` is nullable with `onDelete: SetNull`.** The four existing rows genuinely were written against the EONYX corpus, so the migration backfills them. Nullable so that deleting a prospect's brand after a demo does not cascade away the drafts generated for them.
 
-**Every column carries `@map` to its existing snake_case name.** This makes the Prisma baseline a true no-op against the live volume (§13). Prisma returns camelCase to TypeScript, so `src/db.ts` keeps a thin serializer emitting the current snake_case DTO — `web/lib/types.ts` and every screen stay untouched until §12 changes them deliberately.
+**Every column carries `@map` to its existing snake_case name** so the models describe the live tables rather than renaming them. This is *not* quite a no-op, though — a spike against a copy of the production database found one genuine divergence: the hand-written table declares `created_at TEXT NOT NULL DEFAULT (datetime('now'))` where Prisma models `DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`. §13 handles it; the important consequence is that `prisma migrate dev` must never be run against a database holding real data, because it reads that divergence as drift and offers to reset. Prisma returns camelCase to TypeScript, so `src/db.ts` keeps a thin serializer emitting the current snake_case DTO — `web/lib/types.ts` and every screen stay untouched until §12 changes them deliberately.
 
 ## 6. Persistence layer
 
 `src/db.ts` keeps its exported function signatures (`listDrafts`, `getDraft`, `insertDraft`, `setDraftCost`, `setDraftNotionUrl`, `getStats`) and swaps its body for Prisma calls, plus a `toDraftRow()` serializer preserving the wire shape. A new `src/brands.ts` holds brand/source/document repository functions. `getStats()` gains an optional `brandId` filter, unused in phase 1.
 
-`resetDbForTests()` disappears; tests get a temp-file database per suite via `DATABASE_URL` (libSQL's file driver, unlike `bun:sqlite`, has no `:memory:` shortcut that survives adapter reconnection).
+`resetDbForTests()` disappears; tests get a fresh database per suite via `DATABASE_URL`. A spike confirmed the libSQL adapter accepts `:memory:` and `file::memory:` as well as file paths, so `test:judge`'s existing in-memory database survives the migration unchanged — the schema simply has to be created explicitly, since migrations cannot have been applied to a database that starts empty.
 
 ## 7. Vector store: per-brand collections
 
@@ -336,15 +348,17 @@ Nav gains a "Brands" link. `web/lib/types.ts` needs `Brand`, `BrandSource`, `Bra
 
 ## 13. Migration
 
-Ordered, and each step verified against a copy of the production database before it runs against the real one:
+**`prisma migrate dev` must never run against a database holding real data.** A spike against a copy of the production database confirmed it reads the `created_at` divergence (§5) as drift and offers to reset — *"All data will be lost."* Migrations are authored with `migrate diff` and applied with `migrate deploy`, which performs no drift detection. The whole sequence below was rehearsed on a copy of the live `app.db`; all five rows survived with their timestamps, verdicts and costs byte-identical.
 
-1. **Baseline.** Model the *existing* `drafts` table exactly, with `@map` preserving every column name. Generate the baseline migration and mark it already-applied on existing databases (`prisma migrate resolve --applied`). This must produce zero schema change — verified by diffing the SQLite schema before and after.
-2. **Feature migration.** Adds `brands`, `brand_sources`, `brand_documents`, and `drafts.brand_id`.
+1. **Baseline.** Model the *existing* `drafts` table with `@map` preserving every column name, then `prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script` into `prisma/migrations/0_init/migration.sql` and `prisma migrate resolve --applied 0_init`. This records the migration as done without executing it, leaving the live table untouched.
+2. **Feature migration.** Extend the schema with `Brand`, `BrandSource`, `BrandDocument` and `Draft.brandId`, then author the SQL from the *actual* database state: `prisma migrate diff --from-config-datasource prisma.config.ts --to-schema prisma/schema.prisma --script`. Prisma emits a table redefinition with `INSERT INTO new_drafts … SELECT … FROM drafts`, which both preserves every row and resolves the `created_at` divergence as a side effect. Apply with `prisma migrate deploy`.
 3. **Seed.** `scripts/seed-brand.ts` imports `data/brand/*.md` (or Notion, if configured) into an EONYX `Brand` with `isDefault = true`, `status = 'active'`, `language = 'uk'`, then backfills `drafts.brand_id` for every existing row.
+
+Note the v7 CLI renames these commands depend on: `--to-schema-datamodel` became `--to-schema`, and `--from-url` became `--from-config-datasource`.
 
 `docker-entrypoint.sh` runs `prisma migrate deploy` before starting the API, and exits non-zero if it fails — consistent with its existing "exit rather than serve half-dead" contract. Take a volume snapshot before the deploy carrying step 2.
 
-**Phase 1 is not deployed on its own.** It is developed and merged, but the migration reaches production only in the deploy that also carries phase 2, so the machine goes down once rather than twice. The cost of that choice is that a migration problem and a new feature arrive together and are harder to attribute — which is why step 1 must be proven a zero-change no-op locally, and why the seeded brand is exercised end to end before the deploy rather than after it.
+**Phase 1 is not deployed on its own.** It is developed and merged, but the migration reaches production only in the deploy that also carries phase 2, so the machine goes down once rather than twice. The cost of that choice is that a migration problem and a new feature arrive together and are harder to attribute — which is why the sequence is rehearsed against a copy of the live database, and why the seeded brand is exercised end to end before the deploy rather than after it.
 
 **Deployment changes.** The Dockerfile gains `prisma generate` in the `api-deps` stage and copies `prisma/` plus the generated client into the runtime stage; the libSQL adapter needs no binary. New environment: `DATABASE_URL` (replacing `DRAFTS_DB_PATH`), and optional `APIFY_TOKEN`, `INGEST_MAX_PAGES`, `INGEST_USER_AGENT`.
 
@@ -356,7 +370,7 @@ Ordered, and each step verified against a copy of the production database before
 | robots.txt and social terms of service | `robots.txt` honoured for crawling; social is opt-in behind a token with operator responsibility stated in the UI |
 | Migrating a live volume | Baseline-then-migrate, rehearsed against a copy of `app.db`; volume snapshot before deploy |
 | The distiller invents a style guide | Mandatory human review; exemplars copied verbatim; forbidden phrases must be grounded; raw pages kept for provenance |
-| Prisma + Bun + libSQL is a less-travelled combination | **Spike this first**, before any schema work — it is the single largest unknown in the plan |
+| ~~Prisma + Bun + libSQL is a less-travelled combination~~ | **Retired 2026-08-02.** Spiked against 7.9.1: generate, migrate, relations, aggregates, raw SQL, `Date`/boolean mapping and `:memory:` all verified under Bun. The residual risk moved to the migration procedure, above |
 | Two graphs sharing one runs map | `kind` discriminator; the client already ignores event nodes outside `NODES` |
 | Prompt changes silently overridden | `bun run upload-prompts` is a required step in §0, not an optional follow-up |
 | Migration and feature deploy together (§13) | Step 1 proven a zero-change no-op locally; the seeded brand exercised end to end before deploying, not after |

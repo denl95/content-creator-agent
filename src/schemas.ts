@@ -8,6 +8,13 @@ export const BriefSchema = z.object({
     .describe('Publishing channel that determines format and length rules'),
   tone: z.string().describe("Desired tone of voice, e.g. 'professional', 'casual', 'data-driven'"),
   word_count: z.number().int().positive().describe('Target word count for the final article'),
+  language: z
+    .string()
+    .min(2)
+    .default('uk')
+    .describe(
+      "BCP-47 tag for the language the content must be written in, e.g. 'uk' or 'en'. Defaults to the shipped brand corpus language.",
+    ),
 });
 
 export const ContentPlanSchema = z.object({
@@ -27,6 +34,17 @@ export const ContentPlanSchema = z.object({
   tone: z
     .string()
     .describe('Tone of voice to apply throughout — must align with brand style guide'),
+  conflicts: z
+    .array(
+      z.object({
+        dimension: z.string().describe("Brief field that diverges, e.g. 'word_count' or 'tone'"),
+        brief_value: z.string().describe("The brief's value, which is authoritative"),
+        corpus_value: z.string().describe('The contradicting rule from the brand corpus'),
+      }),
+    )
+    .describe(
+      'Divergences between the brief and the retrieved brand-corpus rules. Return an empty array when there are none.',
+    ),
 });
 
 export const DraftContentSchema = z.object({

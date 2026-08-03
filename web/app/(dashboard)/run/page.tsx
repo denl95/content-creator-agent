@@ -245,6 +245,7 @@ export default function RunPage() {
           tone: formData.get('tone'),
           target_audience: formData.get('target_audience'),
           word_count: Number(formData.get('word_count')),
+          language: formData.get('language'),
         }),
       });
     } catch {

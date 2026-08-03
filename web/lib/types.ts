@@ -36,6 +36,13 @@ export type ContentPlan = {
   key_messages: string[];
   target_audience: string;
   tone: string;
+  /**
+   * Divergences between the brief and the brand corpus, recorded by the
+   * strategist. Optional here although `src/schemas.ts` requires it: the server
+   * replays a run's full event history on every SSE reconnect, so a run started
+   * before this shipped delivers a plan with no `conflicts` key.
+   */
+  conflicts?: Array<{ dimension: string; brief_value: string; corpus_value: string }>;
 };
 
 export type EditFeedback = {

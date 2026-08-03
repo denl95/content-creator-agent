@@ -35,6 +35,18 @@ export function PlanApproval({
           <span className="font-medium">Tone:</span> {plan.tone} ·{' '}
           <span className="font-medium">Audience:</span> {plan.target_audience}
         </p>
+        {plan.conflicts?.length ? (
+          <div className="space-y-1 border-l-2 border-brand pl-3">
+            <p className="eonyx-label">Brief overrides brand guide</p>
+            {plan.conflicts.map((conflict) => (
+              <p key={conflict.dimension} className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{conflict.dimension}</span> — brief:{' '}
+                {conflict.brief_value} · brand guide: {conflict.corpus_value}
+              </p>
+            ))}
+            <p className="text-xs text-muted-foreground">Approving keeps the brief&apos;s values.</p>
+          </div>
+        ) : null}
         <textarea
           value={feedback}
           onChange={(event) => setFeedback(event.target.value)}

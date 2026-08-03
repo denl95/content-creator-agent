@@ -6,6 +6,7 @@ export const linkedinBrief: Brief = {
   channel: 'linkedin',
   tone: 'professional',
   word_count: 900,
+  language: 'en',
 };
 
 export const blogBrief: Brief = {
@@ -14,6 +15,7 @@ export const blogBrief: Brief = {
   channel: 'blog',
   tone: 'professional',
   word_count: 1800,
+  language: 'en',
 };
 
 export const twitterBrief: Brief = {
@@ -22,6 +24,7 @@ export const twitterBrief: Brief = {
   channel: 'twitter',
   tone: 'casual',
   word_count: 300,
+  language: 'en',
 };
 
 // Used for e2e test — on-brand topic the brand corpus covers well, short format to minimise LLM calls
@@ -31,4 +34,5 @@ export const e2eBrief: Brief = {
   channel: 'instagram',
   tone: 'friendly',
   word_count: 150,
+  language: 'en',
 };

@@ -50,6 +50,7 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
       'channel',
       'tone',
       'word_count',
+      'language',
       'revision_feedback',
     ],
     fallback: [
@@ -82,6 +83,7 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
       'tone',
       'channel',
       'word_count',
+      'language',
       'prior_draft',
       'editor_feedback',
     ],
@@ -118,6 +120,8 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
       'channel',
       'word_count',
       'actual_word_count',
+      'language',
+      'approved_conflicts',
       'brand_style',
       'draft_content',
     ],
@@ -138,6 +142,9 @@ export const MANAGED_PROMPTS: Record<PromptKey, ManagedPromptSpec> = {
           '',
           '--- BRAND STYLE (retrieved from style guide) ---',
           '{{brand_style}}',
+          '',
+          '--- APPROVED DIVERGENCES (already decided by a human — do not raise) ---',
+          '{{approved_conflicts}}',
           '',
           '--- DRAFT ---',
           '{{draft_content}}',
@@ -243,6 +250,16 @@ function formatOutline(outline: string[]): string {
   return outline.map((item, i) => `\n  ${i + 1}. ${item}`).join('');
 }
 
+function formatConflicts(conflicts: ContentPlan['conflicts']): string {
+  if (conflicts.length === 0) return 'None — the brief and the brand corpus agree.';
+  return conflicts
+    .map(
+      (c) =>
+        `- ${c.dimension}: the brief says "${c.brief_value}" and is authoritative; the brand corpus says "${c.corpus_value}"`,
+    )
+    .join('\n');
+}
+
 export function strategistVariables(
   brief: {
     topic: string;
@@ -250,6 +267,7 @@ export function strategistVariables(
     channel: string;
     tone: string;
     word_count: number;
+    language: string;
   },
   feedback?: string | null,
 ): Record<string, string> {
@@ -259,6 +277,7 @@ export function strategistVariables(
     channel: brief.channel,
     tone: brief.tone,
     word_count: String(brief.word_count),
+    language: brief.language,
     revision_feedback: feedback ? `--- REVISION FEEDBACK (mandatory) ---\n${feedback}` : '',
   };
 }
@@ -276,6 +295,7 @@ export function writerVariables(
     tone: plan.tone,
     channel: brief.channel,
     word_count: String(brief.word_count),
+    language: brief.language,
     prior_draft: prior ? `--- REVISION MODE ---\nPrevious draft:\n${prior.draft.content}` : '',
     editor_feedback: prior
       ? [
@@ -301,6 +321,8 @@ export function editorVariables(
     channel: brief.channel,
     word_count: String(brief.word_count),
     actual_word_count: String(countWords(draftContent)),
+    language: brief.language,
+    approved_conflicts: formatConflicts(plan.conflicts),
     brand_style: brandStyle,
     draft_content: draftContent,
   };
