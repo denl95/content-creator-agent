@@ -6,10 +6,17 @@ jobs:
     env:
       OPENAI_API_KEY: test-key
       TAVILY_API_KEY: test-key
+      # prisma.config.ts resolves DATABASE_URL eagerly and fails without it,
+      # even for `generate`, which never opens a connection.
+      DATABASE_URL: file:./data/ci.db
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
+      # The generated Prisma client is gitignored, so a fresh checkout has no
+      # src/generated/prisma at all and typecheck fails on the import. This
+      # passed locally only because the client was already on disk.
+      - run: bun run prisma:generate
       - run: bun run typecheck
       - run: bunx biome ci .
       - run: bun run test:unit
