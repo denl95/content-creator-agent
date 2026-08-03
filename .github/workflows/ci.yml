@@ -20,3 +20,9 @@ jobs:
       - run: bun run typecheck
       - run: bunx biome ci .
       - run: bun run test:unit
+      # web/ has its own package and node_modules; react-markdown is not
+      # resolvable from the root, so its tests live and run there.
+      - run: bun install --frozen-lockfile
+        working-directory: web
+      - run: bun test
+        working-directory: web
