@@ -384,7 +384,11 @@ html.light {
   margin: 0.25em 0;
 }
 .eonyx-prose a {
-  color: var(--brand);
+  /* --brand (cyan-500) is dark-register only — it exists for SVG fill/stroke
+     in the charts and html.light deliberately doesn't redefine it. On white
+     it's a 2.16:1 contrast ratio, failing WCAG AA. --text-accent is the token
+     already meant for cyan-on-either-background text (see .eonyx-kicker). */
+  color: var(--text-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -393,7 +397,7 @@ html.light {
   color: var(--foreground);
 }
 .eonyx-prose blockquote {
-  border-left: 2px solid var(--brand);
+  border-left: 2px solid var(--text-accent);
   padding-left: 0.875rem;
   color: var(--muted-foreground);
   margin: 1em 0;

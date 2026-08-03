@@ -51,4 +51,12 @@ describe('Markdown', () => {
   test('renders nothing for empty source rather than throwing', () => {
     expect(render('')).toBe('');
   });
+
+  test('neutralises dangerous link schemes', () => {
+    // A second, separate mechanism from HTML escaping: react-markdown's
+    // defaultUrlTransform. A custom urlTransform would silently disable it.
+    expect(render('[x](javascript:alert(1))')).toContain('href=""');
+    expect(render('[x](data:text/html,<script>alert(1)</script>)')).toContain('href=""');
+    expect(render('![x](javascript:alert(1))')).not.toContain('src="javascript');
+  });
 });

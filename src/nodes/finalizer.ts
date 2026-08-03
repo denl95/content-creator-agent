@@ -7,12 +7,18 @@ import type { GraphStateType } from '../state';
 
 const OUTPUT_DIR = 'output';
 
+// Duplicated in web/lib/format.ts as slugifyTopic (web/ can't import across
+// the bundler boundary). Keep the two in sync: a topic longer than 60 chars
+// whose 60th character lands on a separator must produce the same filename
+// server-side and in the browser download, hence the trailing-hyphen trim
+// after the slice, not just before it.
 function slugify(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-|-$/g, '')
-    .slice(0, 60);
+    .slice(0, 60)
+    .replace(/-$/, '');
 }
 
 export async function finalizer(

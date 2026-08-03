@@ -20,12 +20,18 @@ export function Markdown({ source, className }: { source: string; className?: st
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          // Links inside brand documents point at third-party sites.
-          a: ({ children, node, ...props }) => (
-            <a {...props} target="_blank" rel="noreferrer">
-              {children}
-            </a>
-          ),
+          // Links inside brand documents point at third-party sites, so they
+          // open in a new tab — but only external ones. GFM footnote refs and
+          // in-page `#anchor` links must still navigate in place, or a
+          // footnote click opens a blank duplicate tab instead of scrolling.
+          a: ({ children, node, ...props }) => {
+            const external = typeof props.href === 'string' && !props.href.startsWith('#');
+            return (
+              <a {...props} {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}>
+                {children}
+              </a>
+            );
+          },
         }}
       >
         {source}

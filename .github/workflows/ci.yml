@@ -26,3 +26,7 @@ jobs:
         working-directory: web
       - run: bun test
         working-directory: web
+      # web/ is excluded from root tsc, so `bun run build` (which typechecks
+      # as part of the Next build) is the only typecheck it gets.
+      - run: bun run build
+        working-directory: web

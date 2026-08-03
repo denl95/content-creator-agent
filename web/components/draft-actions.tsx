@@ -27,26 +27,31 @@ export function DraftActions({
   const filename = `${slugifyTopic(topic) || 'draft'}-${id.slice(0, 8)}.md`;
 
   async function copy() {
+    setState('idle');
     try {
       // The markdown source, not the rendered text: the point is pasting into
       // a CMS or editor.
       await navigator.clipboard.writeText(content);
       setState('copied');
       setTimeout(() => setState('idle'), 2000);
-    } catch {
+    } catch (error) {
       // navigator.clipboard is undefined on non-secure origins other than
       // localhost, so this is a real path rather than defensive noise.
+      console.error('clipboard write failed', error);
       setState('failed');
     }
   }
 
   function download() {
+    setState('idle');
     const url = URL.createObjectURL(new Blob([content], { type: 'text/markdown' }));
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = filename;
     anchor.click();
-    URL.revokeObjectURL(url);
+    // Deferred: revoking synchronously races the browser's own fetch of the
+    // blob URL to start the download.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   return (

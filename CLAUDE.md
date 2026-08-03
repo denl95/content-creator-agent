@@ -23,9 +23,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `bunx biome ci .` — read-only, CI-equivalent check (what `.github/workflows/ci.yml` runs)
 
 ### Tests
-- `bun run test:unit` — fast, free, deterministic tests in `tests/unit/`, no LLM/network calls; this is what CI runs
+- `bun run test:unit` — fast, free, deterministic tests in `tests/unit/`, no LLM/network calls; CI also runs this
 - Single file: `bun test tests/unit/<file>.test.ts`
 - Single case: `bun test tests/unit/<file>.test.ts -t "<test name>"`
+- `cd web && bun test` — dashboard component and helper tests in `web/tests/`, no LLM/network calls; CI also runs this as a dedicated step, since `web/` has its own `node_modules` (`react-markdown` isn't resolvable from root) and a separate test run
 - `bun run test:judge` — LLM-as-a-judge tests in `tests/judge/`; makes real OpenAI calls, costs money (~$0.05–0.20/run), **not** run in CI. Override the judge model: `TEST_MODEL=gpt-4o bun run test:judge`
 
 ### Data / prompt maintenance
