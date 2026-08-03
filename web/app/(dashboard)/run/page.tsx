@@ -10,7 +10,7 @@ import { RunError, type RunFailure } from '@/components/run-error';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { errorMessage } from '@/lib/errors';
 import { formatElapsed, formatUsd } from '@/lib/format';
-import { type ContentPlan, type EditFeedback, NODES, type RunEvent } from '@/lib/types';
+import { type Brand, type ContentPlan, type EditFeedback, NODES, type RunEvent } from '@/lib/types';
 
 /** Enough to follow a run without letting a long editor loop grow unbounded. */
 const MAX_ACTIVITY = 50;
@@ -100,6 +100,16 @@ export default function RunPage() {
   const [running, setRunning] = useState(false);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [brands, setBrands] = useState<Brand[]>([]);
+
+  // The API sorts the default brand first, so the initial option is correct
+  // without the client tracking a default of its own.
+  useEffect(() => {
+    fetch('/api/brands')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: Brand[]) => setBrands(list))
+      .catch(() => setBrands([]));
+  }, []);
   const [elapsed, setElapsed] = useState(0);
   const [reconnecting, setReconnecting] = useState(false);
   const lastSeq = useRef(-1);
@@ -246,6 +256,7 @@ export default function RunPage() {
           target_audience: formData.get('target_audience'),
           word_count: Number(formData.get('word_count')),
           language: formData.get('language'),
+          brand_id: formData.get('brand_id'),
         }),
       });
     } catch {
@@ -303,7 +314,7 @@ export default function RunPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">New run</h1>
 
-      <BriefForm running={running} onSubmit={start} />
+      <BriefForm running={running} brands={brands} onSubmit={start} />
 
       <div className="space-y-3">
         <PipelineProgress done={done} active={active} />

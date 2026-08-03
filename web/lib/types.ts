@@ -53,8 +53,22 @@ export type EditFeedback = {
   structure_score: number;
 };
 
+/** Mirrors `BrandRow` in `src/brands.ts` — no shared type crosses the boundary. */
+export type Brand = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  is_default: boolean;
+  language: string;
+  collection_name: string;
+  corpus_hash: string | null;
+  created_at: string;
+};
+
 export type DraftRow = {
   id: string;
+  brand_id: string | null;
   topic: string;
   channel: string;
   tone: string;

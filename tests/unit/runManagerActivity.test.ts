@@ -32,7 +32,8 @@ mock.module('../../src/graph', () => ({
 const { getRun, resumeRun, startRun, sweepStaleRuns } = await import('../../src/runManager');
 type RunStatus = NonNullable<ReturnType<typeof getRun>>['status'];
 const { reportActivity } = await import('../../src/activity');
-const { getDb, resetDbForTests } = await import('../../src/db');
+const { resetDbForTests } = await import('../../src/db');
+const { freshDb } = await import('../helpers/db');
 
 const BRIEF: Brief = {
   topic: 'T',
@@ -41,6 +42,7 @@ const BRIEF: Brief = {
   tone: 'plain',
   word_count: 100,
   language: 'en',
+  brand_id: 'test-brand',
 };
 
 /** Report one activity and answer whether it reached the run's event log. */
@@ -60,19 +62,19 @@ async function settle(threadId: string, want: RunStatus): Promise<void> {
 
 let logSpy: ReturnType<typeof spyOn>;
 
-beforeEach(() => {
+beforeEach(async () => {
   // reportActivity always logs; keep the suite's output readable.
   logSpy = spyOn(console, 'log').mockImplementation(() => {});
-  getDb(':memory:');
+  await freshDb();
   chunks = [];
   gate = new Promise<void>((resolve) => {
     releaseStream = resolve;
   });
 });
 
-afterEach(() => {
+afterEach(async () => {
   logSpy.mockRestore();
-  resetDbForTests();
+  await resetDbForTests();
 });
 
 describe('activity sink lifecycle', () => {

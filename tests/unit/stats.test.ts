@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { getDb, getStats, insertDraft, resetDbForTests } from '../../src/db';
+import { getStats, insertDraft, resetDbForTests } from '../../src/db';
+import { freshDb } from '../helpers/db';
 
-afterEach(() => resetDbForTests());
+afterEach(async () => {
+  await resetDbForTests();
+});
 
 function draft(id: string, over: Partial<Parameters<typeof insertDraft>[0]> = {}) {
   return {
@@ -23,9 +26,9 @@ function draft(id: string, over: Partial<Parameters<typeof insertDraft>[0]> = {}
 }
 
 describe('getStats', () => {
-  test('returns zeros on an empty database, never NaN', () => {
-    getDb(':memory:');
-    const s = getStats();
+  test('returns zeros on an empty database, never NaN', async () => {
+    await freshDb();
+    const s = await getStats();
     expect(s.totalDrafts).toBe(0);
     expect(s.approvedCount).toBe(0);
     expect(s.approvalRate).toBe(0);
@@ -36,11 +39,11 @@ describe('getStats', () => {
     expect(s.spendByDay).toEqual([]);
   });
 
-  test('computes totals, approval rate and average scores', () => {
-    getDb(':memory:');
-    insertDraft(draft('a'));
-    insertDraft(draft('b', { verdict: 'REVISION_NEEDED', iterations: 4, tone_score: 0.5 }));
-    const s = getStats();
+  test('computes totals, approval rate and average scores', async () => {
+    await freshDb();
+    await insertDraft(draft('a'));
+    await insertDraft(draft('b', { verdict: 'REVISION_NEEDED', iterations: 4, tone_score: 0.5 }));
+    const s = await getStats();
     expect(s.totalDrafts).toBe(2);
     expect(s.approvedCount).toBe(1);
     expect(s.approvalRate).toBeCloseTo(0.5, 5);
@@ -48,21 +51,21 @@ describe('getStats', () => {
     expect(s.avgScores.tone).toBeCloseTo(0.7, 5);
   });
 
-  test('groups by channel, most frequent first', () => {
-    getDb(':memory:');
-    insertDraft(draft('a', { channel: 'blog' }));
-    insertDraft(draft('b', { channel: 'twitter' }));
-    insertDraft(draft('c', { channel: 'twitter' }));
-    const s = getStats();
+  test('groups by channel, most frequent first', async () => {
+    await freshDb();
+    await insertDraft(draft('a', { channel: 'blog' }));
+    await insertDraft(draft('b', { channel: 'twitter' }));
+    await insertDraft(draft('c', { channel: 'twitter' }));
+    const s = await getStats();
     expect(s.byChannel[0]).toEqual({ channel: 'twitter', count: 2 });
     expect(s.byChannel[1]).toEqual({ channel: 'blog', count: 1 });
   });
 
-  test('sums cost per day in ascending date order', () => {
-    getDb(':memory:');
-    insertDraft(draft('a'));
-    insertDraft(draft('b'));
-    const s = getStats();
+  test('sums cost per day in ascending date order', async () => {
+    await freshDb();
+    await insertDraft(draft('a'));
+    await insertDraft(draft('b'));
+    const s = await getStats();
     expect(s.spendByDay).toHaveLength(1);
     expect(s.spendByDay[0]?.day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(s.spendByDay[0]?.costUsd).toBe(0);

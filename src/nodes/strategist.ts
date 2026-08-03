@@ -6,7 +6,7 @@ import { traceOptions } from '../observability';
 import { compileManagedPrompt, strategistVariables } from '../prompts/managed';
 import { ContentPlanSchema } from '../schemas';
 import type { GraphStateType } from '../state';
-import { brandStyleRetriever, searchTool } from '../tools/index';
+import { makeBrandStyleRetriever, searchTool } from '../tools/index';
 
 export async function strategist(
   state: GraphStateType,
@@ -29,7 +29,7 @@ export async function strategist(
   const messages = prompt.messages.filter((message) => message.role !== 'system');
   const strategistAgent = createAgent({
     model,
-    tools: [searchTool, brandStyleRetriever],
+    tools: [searchTool, makeBrandStyleRetriever(state.brief.brand_id)],
     responseFormat: ContentPlanSchema,
     ...(systemPrompt ? { systemPrompt } : {}),
   });

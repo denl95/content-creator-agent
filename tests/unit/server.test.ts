@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { getDb, insertDraft, resetDbForTests } from '../../src/db';
+import { insertDraft, resetDbForTests } from '../../src/db';
 import {
   app,
   pumpKeepalive,
@@ -7,10 +7,11 @@ import {
   SSE_KEEPALIVE_MS,
   SSE_POLL_MS,
 } from '../../src/server';
+import { freshDb } from '../helpers/db';
 
-beforeEach(() => {
-  getDb(':memory:');
-  insertDraft({
+beforeEach(async () => {
+  await freshDb();
+  await insertDraft({
     id: 'd1',
     topic: 'T',
     channel: 'blog',
@@ -27,7 +28,9 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => resetDbForTests());
+afterEach(async () => {
+  await resetDbForTests();
+});
 
 describe('drafts endpoints', () => {
   test('GET /drafts lists rows', async () => {

@@ -115,7 +115,7 @@ async function drive(run: InternalRun, input: any): Promise<void> {
       emit(run, 'hitl', { awaiting: true, payload: run.interruptPayload });
     } else {
       run.status = 'done';
-      setDraftCost(run.threadId, run.tracker.costUsd());
+      await setDraftCost(run.threadId, run.tracker.costUsd());
       emit(run, 'done', {
         costUsd: run.tracker.costUsd(),
         tokens: run.tracker.totalTokens(),

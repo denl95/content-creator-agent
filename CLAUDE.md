@@ -29,7 +29,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `bun run test:judge` — LLM-as-a-judge tests in `tests/judge/`; makes real OpenAI calls, costs money (~$0.05–0.20/run), **not** run in CI. Override the judge model: `TEST_MODEL=gpt-4o bun run test:judge`
 
 ### Data / prompt maintenance
-- `bun run reindex` — force-rebuild the Chroma brand-corpus collection
+- `bun run seed-brand` — import data/brand/*.md into the default EONYX brand (idempotent; run once after migrating)
+- `bun run reindex [brand-id-or-slug]` — force-rebuild one brand's collection (default brand if omitted)
+- `bun run prisma:deploy` / `prisma:status` — apply or inspect migrations
 - `bun run upload-prompts` — push `src/prompts/*` fallback text to Langfuse Prompt Management
 - `bun run upload-brand` — push the local brand corpus to a Notion parent page
 
@@ -64,8 +66,26 @@ SSE events (`RunEvent = {node, data, ts, seq}`) are deduped client-side (`web/ap
 ### RAG brand corpus, dual-sourced
 `src/tools/rag.ts` builds a Chroma vector store from either Notion (if `NOTION_TOKEN` + `NOTION_BRAND_PAGE_ID` are set) or `data/brand/*.md` (fallback). The collection is content-hashed (`corpus_hash` in the Chroma collection's metadata) so it only rebuilds when the source content actually changes; `bun run reindex` forces a rebuild. `lookupBrandStyle()` is a plain async function used both by the Strategist's `brandStyleRetriever` tool (agentic call) and directly by the Editor node (no tool-calling agent there — it just retrieves style-guide excerpts once per invocation to judge tone against).
 
-### Drafts persist to SQLite, not files, by default
-`src/db.ts` (`bun:sqlite`) is the source of truth — `finalizer.ts` always inserts a row keyed by `thread_id`, so re-running the same topic never collides. Writing to `./output/*.md` is opt-in via `WRITE_OUTPUT_FILES=true`. Notion publishing is optional and best-effort: the `publisher` graph node auto-publishes only if `NOTION_TOKEN` + `NOTION_DRAFTS_DATABASE_ID` are set (and `SKIP_PUBLISH` isn't `true`); a failure there never loses the draft since the DB row already exists. `POST /drafts/:id/publish` lets the web UI publish on demand instead of relying on the automatic graph step.
+### Persistence is Prisma + libSQL, and the migration rules are load-bearing
+
+`src/db.ts` runs on Prisma with `@prisma/adapter-libsql`; `DATABASE_URL` (a `file:` URL) replaced `DRAFTS_DB_PATH`. Its exported functions are all **async** and deliberately keep the old **snake_case** wire shape — `toDraftRow()` is the single place Prisma's camelCase and `Date` objects meet the API, because `web/lib/types.ts` mirrors those key names by hand.
+
+Three things were learned the hard way and must not be re-derived:
+
+- **Never run `prisma migrate dev` against a database with real data.** The pre-Prisma table declares `created_at TEXT DEFAULT (datetime('now'))` where Prisma models `DATETIME DEFAULT CURRENT_TIMESTAMP`; `migrate dev` reads that as drift and offers to reset — *"All data will be lost."* Author migrations with `prisma migrate diff --from-config-datasource prisma.config.ts --to-schema prisma/schema.prisma --script`, then apply with `prisma migrate deploy`, which performs no drift detection. Rehearse against a copy of `data/app.db` first, and check the emitted SQL contains `INSERT INTO "new_drafts" … SELECT` before applying.
+- **`setDraftCost`/`setDraftNotionUrl` use `updateMany`, not `update`.** Prisma's `update` throws P2025 when no row matches, while the hand-written `UPDATE … WHERE id = ?` they replaced was a silent no-op — and `runManager` calls `setDraftCost` after every run, so a missing row would flip a finished run to `error`.
+- **Tests use a temp file per suite, never `:memory:`.** libSQL gives each pooled connection its own private in-memory database, so a `CREATE TABLE` on one connection is invisible to the next query on another. It surfaces as an intermittent `no such table: main.drafts` that passes per-file and fails in the full suite. `tests/helpers/db.ts` owns this.
+
+Prisma 7 also removed `url` from the `datasource` block — it lives in `prisma.config.ts` — and the adapter class is `PrismaLibSql`, not `PrismaLibSQL`.
+
+### Brands own the corpus, and every run names one
+
+`BriefSchema.brand_id` is required, and `POST /runs` rejects an unknown or inactive brand. `lookupBrandStyle(query, brandId, threadId?)` reads a brand's corpus from `brand_documents where included = true` — **`data/brand/*.md` and Notion are seed-time importers now** (`bun run seed-brand`), not runtime loaders, which is what removed the startup `npx` hazard `NOTION_BRAND_PAGE_ID` carried in production. `corpus_hash` lives on the `Brand` row rather than in Chroma collection metadata, so the in-process `memory` backend can finally use it instead of re-embedding on every container start.
+
+`brandStyleRetriever` is now `makeBrandStyleRetriever(brandId)`: `createAgent` binds tools at construction, so a module-scope tool cannot see which brand a run is for. Keep `reportActivity` **inside** `lookupBrandStyle` — the Editor calls it directly with no agent in between, so reporting from the tool wrapper would silence half the lookups.
+
+### Drafts persist to the database, not files, by default
+`src/db.ts` is the source of truth — `finalizer.ts` always inserts a row keyed by `thread_id`, so re-running the same topic never collides. Writing to `./output/*.md` is opt-in via `WRITE_OUTPUT_FILES=true`. Notion publishing is optional and best-effort: the `publisher` graph node auto-publishes only if `NOTION_TOKEN` + `NOTION_DRAFTS_DATABASE_ID` are set (and `SKIP_PUBLISH` isn't `true`); a failure there never loses the draft since the DB row already exists. `POST /drafts/:id/publish` lets the web UI publish on demand instead of relying on the automatic graph step.
 
 ### Reference docs
 `docs/superpowers/specs/` and `docs/superpowers/plans/` capture the design rationale behind several non-obvious decisions — check there before re-litigating something that looks like it should obviously be different:

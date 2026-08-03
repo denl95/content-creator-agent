@@ -21,19 +21,30 @@ RUN cd web && bun run build
 FROM base AS api-deps
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
+# The generated client is gitignored, so it is built here rather than copied.
+# prisma.config.ts resolves DATABASE_URL eagerly and fails without it, but
+# `generate` never opens a connection — hence the throwaway value. The real URL
+# arrives at runtime, where `migrate deploy` needs it.
+COPY prisma prisma
+COPY prisma.config.ts ./
+RUN DATABASE_URL=file:/tmp/build-only.db bunx prisma generate
 
 # --- Runtime -----------------------------------------------------------------
 FROM base AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV NEXT_PORT=8080
-ENV DRAFTS_DB_PATH=/data/app.db
+ENV DATABASE_URL=file:/data/app.db
 ENV VECTOR_STORE=memory
 ENV API_ORIGIN=http://localhost:3000
 
 COPY --from=api-deps /app/node_modules node_modules
+COPY --from=api-deps /app/src/generated src/generated
 COPY package.json bun.lock ./
+COPY prisma prisma
+COPY prisma.config.ts ./
 COPY src src
+COPY scripts scripts
 COPY data/brand data/brand
 COPY docker-entrypoint.sh ./
 

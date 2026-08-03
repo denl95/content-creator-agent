@@ -42,7 +42,7 @@ export async function publisher(
       status,
     });
     reportActivity(threadId, { step: 'publisher', kind: 'published', detail: page.url });
-    if (threadId) setDraftNotionUrl(threadId, page.url);
+    if (threadId) await setDraftNotionUrl(threadId, page.url);
     return { notionUrl: page.url };
   } catch (err) {
     // Publishing stays best-effort — the draft is already committed to SQLite by

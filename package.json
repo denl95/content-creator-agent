@@ -15,7 +15,11 @@
     "web": "cd web && bun run dev --port ${NEXT_PORT:-3001}",
     "dev:all": "bun run serve & bun run web",
     "test:unit": "bun test tests/unit",
-    "test:judge": "DRAFTS_DB_PATH=:memory: MAX_ITERATIONS=2 MAX_SEARCHES=3 bun test tests/judge",
+    "test:judge": "DATABASE_URL=:memory: MAX_ITERATIONS=2 MAX_SEARCHES=3 bun test tests/judge",
+    "prisma:generate": "prisma generate",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:status": "prisma migrate status",
+    "seed-brand": "bun run scripts/seed-brand.ts",
     "reindex": "bun run scripts/reindex.ts",
     "upload-prompts": "bun run scripts/upload-prompts.ts",
     "upload-brand": "bun run scripts/upload-brand.ts"
@@ -35,11 +39,15 @@
     "@langfuse/client": "^5.10.0",
     "@langfuse/langchain": "^5.10.0",
     "@langfuse/otel": "^5.10.0",
+    "@libsql/client": "^0.17.4",
     "@opentelemetry/sdk-node": "^0.221.0",
+    "@prisma/adapter-libsql": "7",
+    "@prisma/client": "7",
     "chromadb": "^3.5.0",
     "dotenv": "^17.4.2",
     "hono": "^4.12.33",
     "langchain": "^1.5.4",
+    "prisma": "7",
     "zod": "^4.4.3"
   }
 }

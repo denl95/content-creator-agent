@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { VerdictBadge } from '@/components/verdict-badge';
-import { fetchDrafts } from '@/lib/api';
+import { fetchBrands, fetchDrafts } from '@/lib/api';
 import { formatDate, formatUsd } from '@/lib/format';
 
 export default async function DraftsPage() {
-  const drafts = await fetchDrafts();
+  const [drafts, brands] = await Promise.all([fetchDrafts(), fetchBrands()]);
+  const brandName = new Map(brands.map((brand) => [brand.id, brand.name]));
 
   return (
     <div className="space-y-6">
@@ -24,6 +25,7 @@ export default async function DraftsPage() {
               <tr>
                 <th className="eonyx-label p-3 font-normal">Topic</th>
                 <th className="eonyx-label p-3 font-normal">Channel</th>
+                <th className="eonyx-label p-3 font-normal">Brand</th>
                 <th className="eonyx-label p-3 font-normal">Verdict</th>
                 <th className="eonyx-label p-3 text-right font-normal">Words</th>
                 <th className="eonyx-label p-3 text-right font-normal">Cost</th>
@@ -39,6 +41,9 @@ export default async function DraftsPage() {
                     </Link>
                   </td>
                   <td className="p-3 text-muted-foreground">{draft.channel}</td>
+                  <td className="p-3 text-muted-foreground">
+                    {draft.brand_id ? (brandName.get(draft.brand_id) ?? '—') : '—'}
+                  </td>
                   <td className="p-3">
                     <VerdictBadge verdict={draft.verdict} />
                   </td>

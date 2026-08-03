@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// Mirrors the hand-written `drafts` table that predates Prisma. Every field
+/// carries @map so the models describe the live table rather than renaming it.
+model Draft {
+  id             String   @id
+  topic          String
+  channel        String
+  tone           String
+  audience       String
+  content        String
+  wordCount      Int      @map("word_count")
+  verdict        String?
+  toneScore      Float?   @map("tone_score")
+  accuracyScore  Float?   @map("accuracy_score")
+  structureScore Float?   @map("structure_score")
+  iterations     Int      @default(0)
+  issues         String   @default("[]")
+  costUsd        Float?   @map("cost_usd")
+  notionUrl      String?  @map("notion_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+  brandId        String?  @map("brand_id")
+
+  /// Nullable with SetNull: deleting a prospect's brand after a demo must not
+  /// cascade away the drafts generated for them.
+  brand Brand? @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  @@index([brandId])
+  @@map("drafts")
+}
+
+model Brand {
+  id             String   @id @default(uuid())
+  name           String
+  slug           String   @unique
+  status         String   @default("draft")
+  isDefault      Boolean  @default(false) @map("is_default")
+  language       String   @default("en")
+  collectionName String   @unique @map("collection_name")
+  /// Lives here rather than in Chroma collection metadata, which the in-process
+  /// memory backend cannot read — that is why production re-embedded the whole
+  /// corpus on every container start.
+  corpusHash     String?  @map("corpus_hash")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  sources   BrandSource[]
+  documents BrandDocument[]
+  drafts    Draft[]
+
+  @@map("brands")
+}
+
+model BrandSource {
+  id        String   @id @default(uuid())
+  brandId   String   @map("brand_id")
+  kind      String
+  locator   String
+  network   String?
+  pageCount Int      @default(0) @map("page_count")
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+
+  brand     Brand           @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  documents BrandDocument[]
+
+  @@index([brandId])
+  @@map("brand_sources")
+}
+
+model BrandDocument {
+  id        String   @id @default(uuid())
+  brandId   String   @map("brand_id")
+  sourceId  String?  @map("source_id")
+  kind      String
+  title     String
+  content   String
+  /// Raw scraped pages are stored with included = false: kept for provenance,
+  /// never embedded, so nav and footer text cannot degrade retrieval.
+  included  Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  brand  Brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  source BrandSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([brandId, kind])
+  @@map("brand_documents")
+}

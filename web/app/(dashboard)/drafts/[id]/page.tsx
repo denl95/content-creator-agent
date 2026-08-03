@@ -3,7 +3,7 @@ import { PublishButton } from '@/components/publish-button';
 import { StatTile } from '@/components/stat-tile';
 import { VerdictBadge } from '@/components/verdict-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { fetchDraft } from '@/lib/api';
+import { fetchBrands, fetchDraft } from '@/lib/api';
 import { formatDate, formatUsd } from '@/lib/format';
 
 function parseIssues(raw: string): string[] {
@@ -17,8 +17,11 @@ function parseIssues(raw: string): string[] {
 
 export default async function DraftDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const draft = await fetchDraft(id);
+  const [draft, brands] = await Promise.all([fetchDraft(id), fetchBrands()]);
   if (!draft) notFound();
+
+  const brand = draft.brand_id ? brands.find((b) => b.id === draft.brand_id) : undefined;
+  const brandLabel = brand ? `${brand.name} · ` : '';
 
   const issues = parseIssues(draft.issues);
   const score = (value: number | null) => (value === null ? '—' : value.toFixed(2));
@@ -31,7 +34,8 @@ export default async function DraftDetailPage({ params }: { params: Promise<{ id
           <VerdictBadge verdict={draft.verdict} />
         </div>
         <p className="text-sm text-muted-foreground">
-          {draft.channel} · {draft.tone} · {draft.audience} · {formatDate(draft.created_at)}
+          {brandLabel}{draft.channel} · {draft.tone} · {draft.audience} ·{' '}
+          {formatDate(draft.created_at)}
         </p>
       </div>
 

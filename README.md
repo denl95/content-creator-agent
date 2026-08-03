@@ -139,6 +139,7 @@ Options:
 | `--audience` | any string | yes |
 | `--word-count` | integer | yes |
 | `--language` | BCP-47 tag, e.g. `uk` / `en` (default `uk`) | no |
+| `--brand` | Brand id or slug (default: the default brand) | no |
 | `--verbose` | flag | no |
 
 Each run prints token usage and estimated cost at the end — configure costs via `PRICE_INPUT_PER_1M` / `PRICE_OUTPUT_PER_1M`.

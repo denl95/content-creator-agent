@@ -9,7 +9,7 @@ primary_region = 'ams'
 [build]
 [env]
   API_ORIGIN = 'http://localhost:3000'
-  DRAFTS_DB_PATH = '/data/app.db'
+  DATABASE_URL = 'file:/data/app.db'
   NEXT_PORT = '8080'
   NODE_ENV = 'production'
   PORT = '3000'
