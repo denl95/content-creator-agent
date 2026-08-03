@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   inScope,
   isAllowed,
+  isBoilerplatePath,
   normalizeUrl,
   parseRobots,
   parseSitemap,
@@ -111,5 +112,24 @@ describe('inScope', () => {
 
   test('another origin is never in scope', () => {
     expect(inScope('https://other.com/uk', 'https://eonyx.net/uk')).toBe(false);
+  });
+});
+
+describe('isBoilerplatePath', () => {
+  test('drops real legal pages', () => {
+    expect(isBoilerplatePath('/uk/privacy')).toBe(true);
+    expect(isBoilerplatePath('/terms-of-service')).toBe(true);
+    expect(isBoilerplatePath('/en/cookie-policy')).toBe(true);
+  });
+
+  test('keeps pages that merely contain a legal-sounding word', () => {
+    // These are exactly where a brand's voice lives; a substring match ate them.
+    expect(isBoilerplatePath('/uk/legal-services')).toBe(false);
+    expect(isBoilerplatePath('/blog/gdpr-checklist')).toBe(false);
+    expect(isBoilerplatePath('/services/privacy-engineering')).toBe(false);
+  });
+
+  test('ignores a file extension on the segment', () => {
+    expect(isBoilerplatePath('/privacy.html')).toBe(true);
   });
 });

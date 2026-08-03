@@ -45,6 +45,7 @@ const BRAND_SOURCES_SCHEMA = `CREATE TABLE IF NOT EXISTS brand_sources (
   brand_id TEXT NOT NULL,
   kind TEXT NOT NULL,
   locator TEXT NOT NULL,
+  body TEXT,
   network TEXT,
   page_count INTEGER NOT NULL DEFAULT 0,
   fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

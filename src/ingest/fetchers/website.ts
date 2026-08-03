@@ -1,7 +1,7 @@
 import { reportActivity } from '../../activity';
 import { extractText } from '../extract';
+import { safeFetch } from '../safety';
 import {
-  FETCH_TIMEOUT_MS,
   INGEST_MAX_PAGES,
   INGEST_USER_AGENT,
   MAX_BYTES,
@@ -18,13 +18,14 @@ import {
   type RobotsRules,
 } from '../urls';
 
+/**
+ * Every request the crawler makes goes through safeFetch, which refuses private
+ * and link-local destinations and re-checks each redirect hop. The URL comes
+ * from a form, so it is attacker-controlled by definition.
+ */
 async function get(url: string): Promise<Response | null> {
   try {
-    return await fetch(url, {
-      headers: { 'user-agent': INGEST_USER_AGENT },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      redirect: 'follow',
-    });
+    return await safeFetch(url);
   } catch {
     return null;
   }

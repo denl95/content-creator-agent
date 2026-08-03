@@ -140,7 +140,16 @@ app.post('/runs', async (c) => {
   if (!brand || brand.status !== 'active') {
     return c.json({ error: 'unknown or inactive brand' }, 400);
   }
-  const threadId = startRun(parsed.data);
+  // BriefSchema defaults language to 'uk', which is only right for the seeded
+  // brand. An ingested English brand would otherwise get Ukrainian drafts that
+  // its own style guide then penalises. The default has to come from the brand,
+  // so the schema default is overridden unless the caller asked explicitly.
+  const explicitLanguage =
+    typeof (body as { language?: unknown } | null)?.language === 'string' &&
+    (body as { language: string }).language.length > 0;
+  const brief = explicitLanguage ? parsed.data : { ...parsed.data, language: brand.language };
+
+  const threadId = startRun(brief);
   return c.json({ thread_id: threadId }, 201);
 });
 
@@ -289,15 +298,27 @@ app.post('/brands', async (c) => {
 app.post('/brands/:id/reingest', async (c) => {
   const brand = await getBrand(c.req.param('id'));
   if (!brand) return c.json({ error: 'brand not found' }, 404);
-  const sources = await getDb().brandSource.findMany({ where: { brandId: brand.id } });
-  if (sources.length === 0) {
-    return c.json({ error: 'this brand has no stored sources to re-ingest' }, 409);
+  const stored = await getDb().brandSource.findMany({ where: { brandId: brand.id } });
+  // A paste row written before bodies were persisted has nothing to replay.
+  // Dropping it beats failing the whole re-ingest on one unusable source.
+  const replayable = stored.filter((s) => s.kind !== 'paste' || (s.body ?? '').length > 0);
+  if (replayable.length === 0) {
+    return c.json(
+      {
+        error:
+          stored.length === 0
+            ? 'this brand has no stored sources to re-ingest'
+            : 'this brand has only pasted sources recorded before their text was stored — create it again',
+      },
+      409,
+    );
   }
   const threadId = startIngest({
     brandId: brand.id,
-    sources: sources.map((s) =>
+    sources: replayable.map((s) =>
+      // The stored body is what makes a paste source replayable at all.
       s.kind === 'paste'
-        ? { kind: 'paste' as const, locator: s.locator, body: '' }
+        ? { kind: 'paste' as const, locator: s.locator, body: s.body ?? '' }
         : { kind: s.kind as 'website' | 'rss', locator: s.locator },
     ),
   });
