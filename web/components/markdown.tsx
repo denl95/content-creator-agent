@@ -21,7 +21,7 @@ export function Markdown({ source, className }: { source: string; className?: st
         remarkPlugins={[remarkGfm]}
         components={{
           // Links inside brand documents point at third-party sites.
-          a: ({ children, ...props }) => (
+          a: ({ children, node, ...props }) => (
             <a {...props} target="_blank" rel="noreferrer">
               {children}
             </a>

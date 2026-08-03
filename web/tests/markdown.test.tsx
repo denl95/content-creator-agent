@@ -42,6 +42,10 @@ describe('Markdown', () => {
     const html = render('[x](https://example.com)');
     expect(html).toContain('rel="noreferrer"');
     expect(html).toContain('target="_blank"');
+    // react-markdown passes a `node` ExtraProps field into custom renderers;
+    // spreading it onto the DOM element leaks a `node="[object Object]"`
+    // attribute unless it's destructured out separately from `children`.
+    expect(html).not.toContain('node=');
   });
 
   test('renders nothing for empty source rather than throwing', () => {
