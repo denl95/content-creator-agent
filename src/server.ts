@@ -28,7 +28,7 @@ import { BriefSchema } from './schemas';
 // the distilled guide in place instead of rejecting it outright. The plan gate
 // never sends it, and both share this schema because both resume the same way.
 const ResumeSchema = z.union([
-  z.object({ approved: z.literal(true), edits: z.record(z.unknown()).optional() }),
+  z.object({ approved: z.literal(true), edits: z.record(z.string(), z.unknown()).optional() }),
   z.object({ approved: z.literal(false), feedback: z.string().min(1) }),
 ]);
 
