@@ -9,8 +9,8 @@ const ReviewResumeSchema = z.discriminatedUnion('approved', [
     /** Corrections made in the review card, applied before indexing. */
     edits: z
       .object({
-        profile: z.record(z.unknown()).optional(),
-        style_guide: z.record(z.unknown()).optional(),
+        profile: z.record(z.string(), z.unknown()).optional(),
+        style_guide: z.record(z.string(), z.unknown()).optional(),
       })
       .optional(),
   }),
