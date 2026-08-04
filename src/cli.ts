@@ -80,12 +80,6 @@ function formatChunk(nodeName: string, value: unknown, verbose: boolean): string
     return '  Draft saved to database';
   }
 
-  if (nodeName === 'publisher') {
-    const url = typeof v.notionUrl === 'string' ? v.notionUrl : null;
-    if (url) return `  Published to Notion: ${url}`;
-    return '  Publish step skipped';
-  }
-
   return verbose ? `  ${JSON.stringify(v).slice(0, 200)}` : null;
 }
 
@@ -232,13 +226,11 @@ export async function main(): Promise<void> {
     // Print final result
     const finalState = await graph.getState(config);
     const finalContent = finalState.values.finalContent as string | null;
-    const notionUrl = finalState.values.notionUrl as string | null;
 
     await setDraftCost(threadId, tracker.costUsd());
 
     if (finalContent) {
       console.log(`\n✓ Done! Draft saved (id: ${threadId})`);
-      if (notionUrl) console.log(`✓ Published to Notion: ${notionUrl}`);
       console.log(`\nFinal preview:\n${finalContent.slice(0, 400)}...`);
     } else {
       console.log('\nPipeline completed — check the drafts database for the saved row.');

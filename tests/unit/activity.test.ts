@@ -112,8 +112,8 @@ describe('activity registry', () => {
 
   test('routes failures to stderr so log filters keep working', () => {
     const errSpy = spyOn(console, 'error').mockImplementation(() => {});
-    reportActivity('t1', { step: 'publisher', kind: 'publish_failed', detail: 'Notion 502' });
-    expect(errSpy).toHaveBeenCalledWith('[publish_failed] Notion 502');
+    reportActivity('t1', { step: 'strategist', kind: 'web_search_failed', detail: 'Tavily 502' });
+    expect(errSpy).toHaveBeenCalledWith('[web_search_failed] Tavily 502');
     expect(logSpy).not.toHaveBeenCalled();
     errSpy.mockRestore();
   });

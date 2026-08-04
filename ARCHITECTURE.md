@@ -67,7 +67,7 @@ flowchart TB
 
 Both compile to a `StateGraph` with a `MemorySaver` checkpointer, and both pause on `interrupt()` for a human.
 
-**Content** (`src/graph.ts`) — prompt chaining into an evaluator–optimizer loop:
+**Content** (`src/graphBuilder.ts`, compiled in `src/graph.ts`) — prompt chaining into an evaluator–optimizer loop:
 
 ```mermaid
 flowchart LR
@@ -75,7 +75,7 @@ flowchart LR
   hitl -- revise --> strategist
   hitl -- approve --> writer --> editor
   editor -- REVISION_NEEDED --> writer
-  editor -- APPROVED / iter≥5 --> finalizer --> publisher --> END
+  editor -- APPROVED / iter≥5 --> finalizer --> END
 ```
 
 **Ingestion** (`src/ingest/graph.ts`) — crawl, distil, review, index:
@@ -186,7 +186,7 @@ Only the locale string crosses the Server→Client boundary. Message catalogues 
 
 ## Deployment
 
-One container, `node:22-slim` with Bun installed on top — Node is present because the Notion publisher shells out to `npx`. `docker-entrypoint.sh` migrates, seeds the default brand (idempotent), then runs both processes and **exits if either dies**, so the platform restarts rather than serving half-dead.
+One container, `node:22-slim` with Bun installed on top — Node is present because the Notion MCP client shells out to `npx`. `docker-entrypoint.sh` migrates, seeds the default brand (idempotent), then runs both processes and **exits if either dies**, so the platform restarts rather than serving half-dead.
 
 Pushing to `main` deploys via `.github/workflows/fly-deploy.yml`, which does **not** gate on CI.
 
@@ -203,7 +203,7 @@ CI runs `prisma generate` before `typecheck`: the generated client is gitignored
 
 ## Extension points
 
-- **A pipeline step** — add a node in `src/nodes/`, wire it in `src/graph.ts`, and forward config with `mergeConfigs`.
+- **A pipeline step** — add a node in `src/nodes/`, wire it in `src/graphBuilder.ts`, and forward config with `mergeConfigs`. Note the pipeline deliberately ends at `finalizer`: publishing is a per-draft action, not a run step.
 - **An ingestion source** — implement `SourceFetcher` (`src/ingest/types.ts`) and register it in `src/ingest/fetchers/index.ts`. `fetcherFor()` returns `null` when a source's dependencies are unavailable, which is how a paid source degrades to hidden rather than broken.
 - **A vector backend** — implement the `lookupBrandStyle` path in `src/tools/rag.ts`; callers never learn which backend is active.
 - **A locale** — add a catalogue under `web/i18n/messages/` typed as `Messages` and extend `LOCALES`.

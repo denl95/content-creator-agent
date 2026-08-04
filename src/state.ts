@@ -39,12 +39,10 @@ export const GraphState = Annotation.Root({
     default: () => 0,
   }),
 
+  // No `notionUrl` here: the graph no longer publishes. The draft row's
+  // `notion_url` column is written by `POST /drafts/:id/publish`, outside any
+  // run, so it never belonged to graph state once the publisher node went.
   finalContent: Annotation<string | null>({
-    reducer: (_prev, next) => next,
-    default: () => null,
-  }),
-
-  notionUrl: Annotation<string | null>({
     reducer: (_prev, next) => next,
     default: () => null,
   }),
