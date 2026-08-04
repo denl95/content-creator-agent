@@ -332,3 +332,109 @@ html.light {
   --shadow-sm: 0 1px 2px rgba(11,11,20,0.08);
   --shadow-md: 0 6px 20px rgba(11,11,20,0.10);
 }
+
+/* Markdown output. Scoped so it can never leak into the app chrome, and built
+   from EONYX tokens rather than browser defaults. */
+.eonyx-prose {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+.eonyx-prose > :first-child {
+  margin-top: 0;
+}
+.eonyx-prose > :last-child {
+  margin-bottom: 0;
+}
+.eonyx-prose h1,
+.eonyx-prose h2,
+.eonyx-prose h3,
+.eonyx-prose h4 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 1.5em 0 0.5em;
+}
+.eonyx-prose h1 {
+  font-size: 1.5rem;
+}
+.eonyx-prose h2 {
+  font-size: 1.2rem;
+}
+.eonyx-prose h3 {
+  font-size: 1rem;
+}
+.eonyx-prose h4 {
+  font-size: 0.9rem;
+}
+.eonyx-prose p {
+  margin: 0.75em 0;
+}
+.eonyx-prose ul,
+.eonyx-prose ol {
+  margin: 0.75em 0;
+  padding-left: 1.25rem;
+}
+.eonyx-prose ul {
+  list-style: disc;
+}
+.eonyx-prose ol {
+  list-style: decimal;
+}
+.eonyx-prose li {
+  margin: 0.25em 0;
+}
+.eonyx-prose a {
+  /* --brand (cyan-500) is dark-register only — it exists for SVG fill/stroke
+     in the charts and html.light deliberately doesn't redefine it. On white
+     it's a 2.16:1 contrast ratio, failing WCAG AA. --text-accent is the token
+     already meant for cyan-on-either-background text (see .eonyx-kicker). */
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.eonyx-prose strong {
+  font-weight: 600;
+  color: var(--foreground);
+}
+.eonyx-prose blockquote {
+  border-left: 2px solid var(--text-accent);
+  padding-left: 0.875rem;
+  color: var(--muted-foreground);
+  margin: 1em 0;
+}
+.eonyx-prose code {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+  background: var(--muted);
+  border-radius: 2px;
+  padding: 0.1em 0.3em;
+}
+.eonyx-prose pre {
+  background: var(--muted);
+  border-radius: 2px;
+  padding: 0.75rem;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.eonyx-prose pre code {
+  background: none;
+  padding: 0;
+}
+.eonyx-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  display: block;
+  overflow-x: auto;
+}
+.eonyx-prose th,
+.eonyx-prose td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+.eonyx-prose hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}

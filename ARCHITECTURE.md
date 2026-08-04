@@ -177,6 +177,7 @@ web/
   i18n/                   typed message catalogues; uk.ts is `Messages`
   lib/                    api client, error mapping, formatters
   components/             shared UI; components/ui is shadcn
+  tests/                  component and helper tests; `cd web && bun test`
   proxy.ts                locale resolution, then auth delegation
 ```
 
@@ -196,6 +197,9 @@ Pushing to `main` deploys via `.github/workflows/fly-deploy.yml`, which does **n
 |---|---|---|---|
 | Unit | `tests/unit/` | free, no network | yes |
 | LLM-as-judge | `tests/judge/` | real API calls | no |
+| Dashboard | `web/tests/` | free, no network | yes (dedicated step) |
+
+`web/tests/` covers dashboard components and helpers — `Markdown`, `slugifyTopic`, etc. — run with `cd web && bun test`. It lives under `web/`, not `tests/`, because `react-markdown` resolves from `web/node_modules`; a root-level test importing it would fail, since root and `web/` are separate bundler roots with separate `node_modules`.
 
 Tests use a temp-file database per suite (`tests/helpers/db.ts`), never `:memory:` — libSQL gives each pooled connection its own private in-memory database, which surfaced as an intermittent `no such table: main.drafts` that passed per-file and failed in the full suite.
 

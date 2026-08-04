@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { Markdown } from '@/components/markdown';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getMessages, type Locale } from '@/i18n/index';
 import { fetchBrand } from '@/lib/api';
@@ -41,9 +42,7 @@ export default async function BrandDetailPage({
             <CardTitle className="text-base">{m.brands.overview}</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-              {profile.content}
-            </pre>
+            <Markdown source={profile.content} />
           </CardContent>
         </Card>
       ) : null}
@@ -54,9 +53,7 @@ export default async function BrandDetailPage({
             <CardTitle className="text-base">{m.brands.styleGuide}</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-              {styleGuide.content}
-            </pre>
+            <Markdown source={styleGuide.content} />
           </CardContent>
         </Card>
       ) : null}
@@ -72,6 +69,9 @@ export default async function BrandDetailPage({
             exemplars.map((doc) => (
               <div key={doc.id} className="border-b border-border/60 pb-3 last:border-0 last:pb-0">
                 <p className="eonyx-label">{doc.title}</p>
+                {/* Not <Markdown>: exemplars are plain text from extractText(), copied
+                    verbatim from a crawled page. Parsing them would let an incidental # or *
+                    become formatting and stop them being evidence. */}
                 <pre className="mt-1 whitespace-pre-wrap font-sans text-sm text-muted-foreground">
                   {doc.content}
                 </pre>
