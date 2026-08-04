@@ -1,4 +1,9 @@
-export const NODES = ['strategist', 'hitl', 'writer', 'editor', 'finalizer', 'publisher'];
+/**
+ * Pipeline steps shown on the run screen. `publisher` is deliberately absent:
+ * publishing is not part of a run, it is a per-draft action behind the Publish
+ * button. Mirrors the node list in `src/graph.ts` by hand.
+ */
+export const NODES = ['strategist', 'hitl', 'writer', 'editor', 'finalizer'];
 
 // biome-ignore lint/suspicious/noExplicitAny: payloads are node-specific and narrowed at each use site
 export type RunEvent = { node: string; data: any; ts: number; seq: number };

@@ -19,8 +19,7 @@ flowchart LR
     Writer --> Editor
     Editor -- REVISION_NEEDED --> Writer
     Editor -- APPROVED / iter>=5 --> Finalizer
-    Finalizer --> Publisher
-    Publisher --> END
+    Finalizer --> END
 ```
 
 **Pattern:** Prompt Chaining (Strategist → HITL → Writer) + Evaluator-Optimizer loop (Writer ↔ Editor), capped at 5 iterations.
@@ -74,12 +73,10 @@ CHROMA_URL=http://localhost:8000
 CHROMA_COLLECTION=brand
 
 # Notion MCP integration (optional — falls back to local files if unset)
+# Publishing is never automatic; these only enable the Publish button.
 NOTION_TOKEN=
 NOTION_BRAND_PAGE_ID=
 NOTION_DRAFTS_DATABASE_ID=
-
-# Set to "true" to skip the Notion publish step
-SKIP_PUBLISH=
 ```
 
 **3. Start Chroma**
@@ -103,7 +100,11 @@ The Strategist queries a vector store built from your brand assets. There are tw
 
 **5. Notion drafts database (optional, for publishing)**
 
-To auto-publish each finalized draft to Notion, create a database with these properties and share it with the integration, then set `NOTION_DRAFTS_DATABASE_ID`:
+Publishing is **off by default and never happens on its own.** A finished run
+saves the draft to the database and stops there; a draft reaches Notion only
+when you open it and press **Publish**. To enable that button, create a database
+with these properties, share it with the integration, and set
+`NOTION_DRAFTS_DATABASE_ID`:
 
 | Property | Type |
 |---|---|
@@ -112,7 +113,8 @@ To auto-publish each finalized draft to Notion, create a database with these pro
 | `Word Count` | Number |
 | `Status` | Select (with options `Approved`, `Unapproved`) |
 
-If `NOTION_DRAFTS_DATABASE_ID` is unset, the publisher node is a no-op.
+If `NOTION_DRAFTS_DATABASE_ID` is unset, the Publish button returns
+`notion_not_configured` and drafts live in the database only.
 
 ![Drafts database in Notion](screenshots/notion-1.png)
 
@@ -393,5 +395,5 @@ fly.toml            — Fly.io config (auto-stop disabled, single machine, volum
 - **RAG:** Uses Chroma (local Docker, default `http://localhost:8000`). Embeddings persist between runs; a non-empty collection with a saved source hash is reused without loading Notion. Run `bun run reindex` to refresh the source corpus and rebuild the collection.
 - **Checkpointer:** Uses `MemorySaver` (in-process). Threads do not survive process restart. Swap to `SqliteSaver` or `@langchain/langgraph-checkpoint-postgres` for persistence across runs.
 - **Search:** Tavily, max 5 results per call, capped at 10 searches per run. Requires `TAVILY_API_KEY`.
-- **Publisher:** optional — drafts always persist to the SQLite database; the Notion publish runs only when `NOTION_TOKEN` and `NOTION_DRAFTS_DATABASE_ID` are set (or on demand via `POST /drafts/:id/publish` / the UI button). `SKIP_PUBLISH=true` disables the automatic graph publish.
+- **Publishing:** manual — drafts always persist to the SQLite database, and nothing is ever pushed to Notion by a run. Publishing is one action on one draft, via `POST /drafts/:id/publish` or the Publish button, and needs `NOTION_TOKEN` + `NOTION_DRAFTS_DATABASE_ID`.
 - **Observability:** Trace events are buffered and flushed on clean process exit. Abrupt termination (SIGKILL, unhandled crash) may drop the last batch of events before they reach Langfuse.

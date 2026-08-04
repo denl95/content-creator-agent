@@ -80,7 +80,6 @@ function summarizeContent(node: string, value: unknown): unknown {
     return draft ? { preview: draft.content.slice(0, 300), word_count: draft.word_count } : {};
   }
   if (node === 'editor') return { editFeedback: v.editFeedback };
-  if (node === 'publisher') return { notionUrl: v.notionUrl ?? null };
   return {};
 }
 
