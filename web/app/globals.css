@@ -260,6 +260,17 @@ body {
   color: var(--text-muted);
 }
 
+/* The mobile nav's tab strip scrolls without a visible bar: a scrollbar sitting
+   under 11px tracked labels reads as a rendering artifact, and the partly
+   visible next tab is the affordance. Overflow still scrolls by touch, wheel
+   and keyboard. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ---- Signature red corner slash (chevron fragment) ---- */
 .eonyx-slash {
   position: absolute;
