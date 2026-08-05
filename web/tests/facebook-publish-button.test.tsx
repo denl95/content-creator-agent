@@ -1,10 +1,28 @@
 import { describe, expect, test } from 'bun:test';
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { FacebookPublishButton } from '../components/facebook-publish-button';
 import en from '../i18n/messages/en';
+import { MessagesProvider } from '../i18n/provider';
+
+// Only `refresh` is ever called; the rest satisfy the context's type.
+const routerStub = {
+  refresh: () => {},
+  push: () => {},
+  replace: () => {},
+  back: () => {},
+  forward: () => {},
+  prefetch: () => {},
+};
 
 const render = (props: { draftId: string; configured: boolean; pageName: string | null }) =>
-  renderToStaticMarkup(<FacebookPublishButton {...props} />);
+  renderToStaticMarkup(
+    <AppRouterContext.Provider value={routerStub as never}>
+      <MessagesProvider locale="en">
+        <FacebookPublishButton {...props} />
+      </MessagesProvider>
+    </AppRouterContext.Provider>,
+  );
 
 describe('FacebookPublishButton', () => {
   // Assert the `disabled=""` attribute, never the bare word: the shadcn Button's
