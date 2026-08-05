@@ -23,6 +23,7 @@ const DRAFTS_SCHEMA = `CREATE TABLE IF NOT EXISTS drafts (
   issues TEXT NOT NULL DEFAULT '[]',
   cost_usd REAL,
   notion_url TEXT,
+  facebook_url TEXT,
   brand_id TEXT,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 )`;

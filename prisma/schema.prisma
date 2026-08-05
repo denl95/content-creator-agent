@@ -25,6 +25,7 @@ model Draft {
   issues         String   @default("[]")
   costUsd        Float?   @map("cost_usd")
   notionUrl      String?  @map("notion_url")
+  facebookUrl    String?  @map("facebook_url")
   createdAt      DateTime @default(now()) @map("created_at")
   brandId        String?  @map("brand_id")
 

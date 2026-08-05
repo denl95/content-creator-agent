@@ -88,6 +88,7 @@ export type DraftRow = {
   issues: string;
   cost_usd: number | null;
   notion_url: string | null;
+  facebook_url: string | null;
   created_at: string;
 };
 
