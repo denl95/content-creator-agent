@@ -77,6 +77,12 @@ CHROMA_COLLECTION=brand
 NOTION_TOKEN=
 NOTION_BRAND_PAGE_ID=
 NOTION_DRAFTS_DATABASE_ID=
+
+# Facebook Page publishing (optional — enables the Publish to Facebook button)
+# Also never automatic. See docs/facebook-setup.md for the full Meta-side walkthrough.
+FACEBOOK_PAGE_ID=
+FACEBOOK_PAGE_ACCESS_TOKEN=
+FACEBOOK_API_VERSION=v26.0
 ```
 
 **3. Start Chroma**
@@ -204,7 +210,7 @@ Starts the Hono API on `:3000` and the Next.js dashboard on `http://localhost:30
 | `/brands` | Every brand, with status, language and default marker |
 | `/brands/new` | Ingest a brand from a website, feed or pasted posts — watch it crawl, distil and pause for review |
 | `/drafts` | Every draft ever generated, with verdict, word count and cost |
-| `/drafts/[id]` | Full content, editor scores and issues, publish to Notion |
+| `/drafts/[id]` | Full content, editor scores and issues, publish to Notion or to Facebook |
 
 The dashboard is frontend-only: it reaches the API exclusively through a `/api/*` rewrite, so the Hono server keeps owning the pipeline, SQLite and SSE.
 
@@ -214,7 +220,7 @@ The dashboard is frontend-only: it reaches the API exclusively through a `/api/*
 
 **No Chroma needed.** `VECTOR_STORE=memory` builds the brand corpus into an in-process vector store at startup instead of talking to Chroma — that's what the deployed container uses.
 
-API endpoints (reachable directly on `:3000`, or via `/api/*` from the dashboard): `POST /runs`, `GET /runs/:id`, `POST /runs/:id/resume`, `GET /runs/:id/events` (SSE), `GET /drafts`, `GET /drafts/:id`, `POST /drafts/:id/publish`, `GET /stats`, `POST /auth/login`, `GET /auth/check`.
+API endpoints (reachable directly on `:3000`, or via `/api/*` from the dashboard): `POST /runs`, `GET /runs/:id`, `POST /runs/:id/resume`, `GET /runs/:id/events` (SSE), `GET /drafts`, `GET /drafts/:id`, `POST /drafts/:id/publish`, `POST /drafts/:id/publish/facebook`, `GET /publish/facebook/status`, `GET /stats`, `POST /auth/login`, `GET /auth/check`.
 
 ### Deploying
 
@@ -348,13 +354,14 @@ src/
   state.ts          — Annotation.Root channels
   schemas.ts        — Zod contracts (ContentPlan, DraftContent, EditFeedback)
   model.ts          — shared ChatOpenAI instance
-  constants.ts      — MAX_ITERATIONS = 5
+  constants.ts      — MAX_ITERATIONS = 5, plus Facebook Graph API settings
   observability.ts  — Langfuse CallbackHandler singleton
   nodes/            — strategist, writer, editor, hitl, finalizer
   prompts/          — system prompts and message builders
   routing/          — editorRoute (REVISION_NEEDED → writer, else → finalizer)
   tools/            — web_search (with retry), brand_style_lookup, memoryVectorStore
   mcp/              — Notion MCP client + brand fetch / publish helpers
+  publishers/       — Facebook Graph API transport (POST to a Page's /feed)
   auth.ts           — shared-password gate (HMAC session token)
   db.ts             — SQLite drafts store + /stats aggregation
   server.ts         — Hono API (no static serving; the dashboard is separate)
@@ -395,5 +402,5 @@ fly.toml            — Fly.io config (auto-stop disabled, single machine, volum
 - **RAG:** Uses Chroma (local Docker, default `http://localhost:8000`). Embeddings persist between runs; a non-empty collection with a saved source hash is reused without loading Notion. Run `bun run reindex` to refresh the source corpus and rebuild the collection.
 - **Checkpointer:** Uses `MemorySaver` (in-process). Threads do not survive process restart. Swap to `SqliteSaver` or `@langchain/langgraph-checkpoint-postgres` for persistence across runs.
 - **Search:** Tavily, max 5 results per call, capped at 10 searches per run. Requires `TAVILY_API_KEY`.
-- **Publishing:** manual — drafts always persist to the SQLite database, and nothing is ever pushed to Notion by a run. Publishing is one action on one draft, via `POST /drafts/:id/publish` or the Publish button, and needs `NOTION_TOKEN` + `NOTION_DRAFTS_DATABASE_ID`.
+- **Publishing:** manual — drafts always persist to the database, and nothing is ever pushed to Notion or Facebook by a run. Publishing is one action on one draft, to one of two destinations: Notion via `POST /drafts/:id/publish` (needs `NOTION_TOKEN` + `NOTION_DRAFTS_DATABASE_ID`) or Facebook via `POST /drafts/:id/publish/facebook` (needs `FACEBOOK_PAGE_ID` + `FACEBOOK_PAGE_ACCESS_TOKEN`, see `docs/facebook-setup.md`). Each destination has its own button and its own config check; neither depends on the other being set up.
 - **Observability:** Trace events are buffered and flushed on clean process exit. Abrupt termination (SIGKILL, unhandled crash) may drop the last batch of events before they reach Langfuse.

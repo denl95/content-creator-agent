@@ -125,7 +125,7 @@ This is deliberate and currently harmless: those four modules sit below everythi
 
 ## Cross-cutting concerns
 
-**Authentication — one implementation.** `src/auth.ts` owns the HMAC session token and constant-time comparison. Hono guards `/runs*`, `/drafts*`, `/brands*` and `/stats`; `web/proxy.ts` calls `GET /auth/check` rather than re-deriving the HMAC, so the two cannot drift. Unset `DEMO_PASSWORD` makes both sides a no-op.
+**Authentication — one implementation.** `src/auth.ts` owns the HMAC session token and constant-time comparison. Hono guards `/runs*`, `/drafts*`, `/brands*`, `/publish*` and `/stats`; `web/proxy.ts` calls `GET /auth/check` rather than re-deriving the HMAC, so the two cannot drift. Unset `DEMO_PASSWORD` makes both sides a no-op.
 
 **Tracing and cost.** `src/observability.ts` builds Langfuse callbacks; `src/costTracker.ts` accumulates tokens as a LangChain callback. Every node's inner `.invoke()` must merge the parent config via `mergeConfigs(config, {...})` — without it, callbacks attached at `graph.stream()` silently never fire, which once made cost tracking report `$0` for every run. See `CLAUDE.md` for the full account.
 

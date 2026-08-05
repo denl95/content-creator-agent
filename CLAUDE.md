@@ -131,7 +131,7 @@ Per `.cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc`: use `bun`/`bun te
 Route groups: `web/app/(dashboard)/` carries the nav shell; `web/app/login/` sits outside it so the login screen renders bare.
 
 ### Auth has one implementation, not two
-`src/auth.ts` owns everything (HMAC session token, constant-time compare). Hono guards `/runs*`, `/drafts*`, `/stats` and serves `POST /auth/login` + `GET /auth/check`. Next's `proxy.ts` **delegates to `/auth/check`** rather than re-deriving the HMAC — don't duplicate that logic into `web/`, or the two can drift. Unset `DEMO_PASSWORD` makes both sides a no-op, which is the local-dev default.
+`src/auth.ts` owns everything (HMAC session token, constant-time compare). Hono guards `/runs*`, `/drafts*`, `/publish*`, `/stats` and serves `POST /auth/login` + `GET /auth/check`. Next's `proxy.ts` **delegates to `/auth/check`** rather than re-deriving the HMAC — don't duplicate that logic into `web/`, or the two can drift. Unset `DEMO_PASSWORD` makes both sides a no-op, which is the local-dev default.
 
 ### Vector store has two backends
 `VECTOR_STORE=chroma` (default, local dev) or `memory`. The `memory` path (`src/tools/memoryVectorStore.ts`) embeds the corpus at startup and cosine-ranks in an array — LangChain 1.x ships no in-memory vector store, and the `@langchain/community` alternatives need native modules that fight containerization. Both sit behind the same `lookupBrandStyle(query)` signature, so callers never change.
