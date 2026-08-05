@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { insertDraft, resetDbForTests } from '../../src/db';
+import { getDraft, insertDraft, resetDbForTests, setDraftFacebookUrl } from '../../src/db';
 import {
   app,
   pumpKeepalive,
@@ -65,6 +65,111 @@ describe('runs endpoints', () => {
       body: JSON.stringify({ topic: '' }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('facebook publishing', () => {
+  const realFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    delete process.env.FACEBOOK_PAGE_ID;
+    delete process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  });
+
+  test('404 when the draft does not exist', async () => {
+    process.env.FACEBOOK_PAGE_ID = '1234';
+    process.env.FACEBOOK_PAGE_ACCESS_TOKEN = 'tok';
+    const res = await app.request('/drafts/nope/publish/facebook', { method: 'POST' });
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toBe('draft_not_found');
+  });
+
+  test('400 when Facebook is unconfigured', async () => {
+    const res = await app.request('/drafts/d1/publish/facebook', { method: 'POST' });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('facebook_not_configured');
+  });
+
+  test('posts the plain-text draft and stores the url', async () => {
+    process.env.FACEBOOK_PAGE_ID = '1234';
+    process.env.FACEBOOK_PAGE_ACCESS_TOKEN = 'tok';
+    let sentBody = '';
+    globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+      sentBody = String(init?.body);
+      return new Response(JSON.stringify({ id: '1234_5678' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }) as typeof fetch;
+
+    const res = await app.request('/drafts/d1/publish/facebook', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { url: string }).url).toBe('https://www.facebook.com/1234_5678');
+    // d1's content is '# Hi' — the heading marker must not reach Facebook.
+    expect(sentBody).toContain('message=Hi');
+    expect((await getDraft('d1'))?.facebook_url).toBe('https://www.facebook.com/1234_5678');
+  });
+
+  test('409 on a second publish, without touching Graph', async () => {
+    process.env.FACEBOOK_PAGE_ID = '1234';
+    process.env.FACEBOOK_PAGE_ACCESS_TOKEN = 'tok';
+    await setDraftFacebookUrl('d1', 'https://www.facebook.com/1_2');
+
+    let called = false;
+    globalThis.fetch = (async (_input: string | URL | Request, _init?: RequestInit) => {
+      called = true;
+      return new Response('{}', { status: 200 });
+    }) as typeof fetch;
+
+    const res = await app.request('/drafts/d1/publish/facebook', { method: 'POST' });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toBe('facebook_already_published');
+    // The whole point of the server-side guard: a stale tab must not double-post.
+    expect(called).toBe(false);
+  });
+
+  test('502 carrying Meta’s message when Graph rejects the post', async () => {
+    process.env.FACEBOOK_PAGE_ID = '1234';
+    process.env.FACEBOOK_PAGE_ACCESS_TOKEN = 'tok';
+    globalThis.fetch = (async (_input: string | URL | Request, _init?: RequestInit) =>
+      new Response(JSON.stringify({ error: { message: 'Session has expired', code: 190 } }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })) as typeof fetch;
+
+    const res = await app.request('/drafts/d1/publish/facebook', { method: 'POST' });
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.error).toBe('facebook_publish_failed');
+    expect(body.message).toContain('Session has expired');
+    expect((await getDraft('d1'))?.facebook_url).toBeNull();
+  });
+
+  test('status reports unconfigured without calling Graph', async () => {
+    let called = false;
+    globalThis.fetch = (async (_input: string | URL | Request, _init?: RequestInit) => {
+      called = true;
+      return new Response('{}', { status: 200 });
+    }) as typeof fetch;
+
+    const res = await app.request('/publish/facebook/status');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ configured: false, page_name: null });
+    expect(called).toBe(false);
+  });
+
+  test('status reports the page name when configured', async () => {
+    process.env.FACEBOOK_PAGE_ID = 'page-name-test';
+    process.env.FACEBOOK_PAGE_ACCESS_TOKEN = 'tok';
+    globalThis.fetch = (async (_input: string | URL | Request, _init?: RequestInit) =>
+      new Response(JSON.stringify({ name: 'EONYX' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })) as typeof fetch;
+
+    const res = await app.request('/publish/facebook/status');
+    expect(await res.json()).toEqual({ configured: true, page_name: 'EONYX' });
   });
 });
 
