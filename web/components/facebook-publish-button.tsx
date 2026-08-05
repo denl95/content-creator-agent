@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useMessages } from '@/i18n/provider';
-import { errorMessage } from '@/lib/errors';
+import { postDraftToFacebook } from '@/lib/facebook';
 
 /**
  * Publish a draft to the configured Facebook Page.
@@ -46,15 +46,15 @@ export function FacebookPublishButton({
   async function publish() {
     setPending(true);
     setError('');
-    const res = await fetch(`/api/drafts/${draftId}/publish/facebook`, { method: 'POST' });
+    const result = await postDraftToFacebook(draftId, m);
     setPending(false);
     setConfirming(false);
-    if (res.ok) {
-      // The server now holds the post url, so the page re-renders into a link.
-      router.refresh();
+    if ('error' in result) {
+      setError(result.error);
       return;
     }
-    setError(await errorMessage(res, m.errors.facebookPublishFailed, m));
+    // The server now holds the post url, so the page re-renders into a link.
+    router.refresh();
   }
 
   return (

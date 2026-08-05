@@ -102,6 +102,9 @@ export type BrandDocument = {
 
 export type BrandDetail = Brand & { documents: BrandDocument[] };
 
+/** Mirrors the response of `GET /publish/facebook/status` in `src/server.ts`. */
+export type FacebookStatus = { configured: boolean; page_name: string | null };
+
 export type BrandProfilePayload = {
   name: string;
   mission: string;
