@@ -3,6 +3,7 @@ import { getDraft, insertDraft, resetDbForTests, setDraftFacebookUrl } from '../
 import {
   app,
   pumpKeepalive,
+  resetFacebookPageNameCache,
   SERVER_IDLE_TIMEOUT_S,
   SSE_KEEPALIVE_MS,
   SSE_POLL_MS,
@@ -75,6 +76,7 @@ describe('facebook publishing', () => {
     globalThis.fetch = realFetch;
     delete process.env.FACEBOOK_PAGE_ID;
     delete process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+    resetFacebookPageNameCache();
   });
 
   test('404 when the draft does not exist', async () => {
@@ -129,6 +131,37 @@ describe('facebook publishing', () => {
     expect(called).toBe(false);
   });
 
+  test('two concurrent publish requests: exactly one posts, the other gets 409', async () => {
+    process.env.FACEBOOK_PAGE_ID = '1234';
+    process.env.FACEBOOK_PAGE_ACCESS_TOKEN = 'tok';
+
+    let graphCalls = 0;
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    globalThis.fetch = (async (_input: string | URL | Request, _init?: RequestInit) => {
+      graphCalls++;
+      await gate;
+      return new Response(JSON.stringify({ id: '1234_5678' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }) as typeof fetch;
+
+    const first = app.request('/drafts/d1/publish/facebook', { method: 'POST' });
+    const second = app.request('/drafts/d1/publish/facebook', { method: 'POST' });
+    // Give both requests a chance to reach the in-flight check before either
+    // Graph call resolves — this is what proves the guard, not just the outcome.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    release();
+    const [firstRes, secondRes] = await Promise.all([first, second]);
+
+    expect(graphCalls).toBe(1);
+    const statuses = [firstRes.status, secondRes.status].sort();
+    expect(statuses).toEqual([200, 409]);
+  });
+
   test('502 carrying Meta’s message when Graph rejects the post', async () => {
     process.env.FACEBOOK_PAGE_ID = '1234';
     process.env.FACEBOOK_PAGE_ACCESS_TOKEN = 'tok';
@@ -170,6 +203,28 @@ describe('facebook publishing', () => {
 
     const res = await app.request('/publish/facebook/status');
     expect(await res.json()).toEqual({ configured: true, page_name: 'EONYX' });
+  });
+
+  test('a failed lookup is not cached — the next call retries', async () => {
+    process.env.FACEBOOK_PAGE_ID = '61550123456789';
+    process.env.FACEBOOK_PAGE_ACCESS_TOKEN = 'tok';
+
+    globalThis.fetch = (async (_input: string | URL | Request, _init?: RequestInit) =>
+      new Response(JSON.stringify({ error: { message: 'bad token', code: 190 } }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })) as typeof fetch;
+    const first = await app.request('/publish/facebook/status');
+    // A failed lookup falls back to the raw Page ID — never null, and never cached.
+    expect(await first.json()).toEqual({ configured: true, page_name: '61550123456789' });
+
+    globalThis.fetch = (async (_input: string | URL | Request, _init?: RequestInit) =>
+      new Response(JSON.stringify({ name: 'EONYX' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })) as typeof fetch;
+    const second = await app.request('/publish/facebook/status');
+    expect(await second.json()).toEqual({ configured: true, page_name: 'EONYX' });
   });
 });
 

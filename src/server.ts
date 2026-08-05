@@ -442,6 +442,24 @@ app.post('/drafts/:id/publish/facebook', async (c) => {
     );
   }
 
+  // The stored-url check above defeats the sequential stale-tab case but not a
+  // double-submit, a retry, or two tabs racing: two requests can both read
+  // `null` before either write lands. `facebookPublishInFlight` closes that gap.
+  if (facebookPublishInFlight.has(draft.id)) {
+    // Reusing `facebook_already_published` deliberately: a new code would need
+    // both locales, an `errors.ts` mapping and an enumeration-test entry, and
+    // from the client's point of view "already being posted" and "already
+    // posted" call for the same message.
+    return c.json(
+      {
+        error: 'facebook_already_published',
+        message: 'a publish for this draft is already in flight',
+      },
+      409,
+    );
+  }
+  facebookPublishInFlight.add(draft.id);
+
   try {
     const post = await publishToFacebook({
       pageId,
@@ -458,12 +476,20 @@ app.post('/drafts/:id/publish/facebook', async (c) => {
       },
       502,
     );
+  } finally {
+    facebookPublishInFlight.delete(draft.id);
   }
 });
 
 // A Page's name does not change within a process lifetime, so one lookup is
 // enough — and the status route is hit on every draft page render.
 let cachedPageName: string | null = null;
+
+// A Page post is public and cannot be recalled from here, so the stored-url
+// check is not enough on its own: two requests can both pass it before either
+// has written back. `fly.toml` pins a single machine, so an in-process set is a
+// complete guard rather than a partial one.
+const facebookPublishInFlight = new Set<string>();
 
 /**
  * Lets the dashboard name the Page in its confirmation, and disable the button
@@ -475,10 +501,15 @@ app.get('/publish/facebook/status', async (c) => {
   if (!pageId || !accessToken) return c.json({ configured: false, page_name: null });
 
   if (cachedPageName === null) {
-    cachedPageName = (await fetchPageName(pageId, accessToken)) ?? pageId;
+    cachedPageName = await fetchPageName(pageId, accessToken);
   }
-  return c.json({ configured: true, page_name: cachedPageName });
+  return c.json({ configured: true, page_name: cachedPageName ?? pageId });
 });
+
+/** Test seam: the cache is process-wide and would otherwise leak across suites. */
+export function resetFacebookPageNameCache(): void {
+  cachedPageName = null;
+}
 
 // API only — the Next.js app in web/ serves the UI and proxies here via /api/*.
 export default {
