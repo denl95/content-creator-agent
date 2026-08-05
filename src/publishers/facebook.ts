@@ -51,10 +51,19 @@ export async function publishToFacebook(args: FacebookPostArgs): Promise<Faceboo
   return { id: body.id, url: `https://www.facebook.com/${body.id}` };
 }
 
-/** Null rather than a throw: a missing name must never block the publish UI. */
+/**
+ * Null rather than a throw: a missing name must never block the publish UI.
+ *
+ * The token travels as an `Authorization: Bearer` header, not a query
+ * parameter — query strings are the part of a request that reaches proxy
+ * logs, APM traces and crash reports, and Meta accepts a bearer header on
+ * Graph GETs just as well.
+ */
 export async function fetchPageName(pageId: string, accessToken: string): Promise<string | null> {
-  const params = new URLSearchParams({ fields: 'name', access_token: accessToken });
-  const res = await fetch(graphUrl(`${pageId}?${params}`)).catch(() => null);
+  const params = new URLSearchParams({ fields: 'name' });
+  const res = await fetch(graphUrl(`${pageId}?${params}`), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  }).catch(() => null);
   if (!res?.ok) return null;
   const body = (await res.json().catch(() => null)) as { name?: string } | null;
   return body?.name ?? null;

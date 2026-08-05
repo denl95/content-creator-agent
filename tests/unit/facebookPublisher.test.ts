@@ -102,6 +102,17 @@ describe('fetchPageName', () => {
     expect(await fetchPageName('1234', 'tok')).toBe('EONYX');
   });
 
+  test('sends the token as a bearer header, never in the URL', async () => {
+    const stub = stubFetch(() => json({ name: 'EONYX' }));
+    await fetchPageName('1234', 'super-secret-token');
+
+    expect(stub.calls).toHaveLength(1);
+    expect(stub.calls[0]?.url).not.toContain('super-secret-token');
+    expect(stub.calls[0]?.url).not.toContain('access_token');
+    const headers = new Headers(stub.calls[0]?.init?.headers);
+    expect(headers.get('Authorization')).toBe('Bearer super-secret-token');
+  });
+
   test('returns null rather than throwing when the lookup fails', async () => {
     stubFetch(() => json({ error: { message: 'bad token', code: 190 } }, 400));
     expect(await fetchPageName('1234', 'tok')).toBeNull();
