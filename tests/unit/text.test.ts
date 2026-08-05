@@ -32,12 +32,37 @@ describe('markdownToPlainText', () => {
     );
   });
 
+  test('unwraps emphasis nested inside strong, leaving no stray asterisk', () => {
+    // `[^*]+` cannot span the inner pair, so the outer `**` never matches and
+    // the delimiters survive into a public post.
+    expect(markdownToPlainText('**bold *italic* inside**')).toBe('bold italic inside');
+    expect(markdownToPlainText('This is **bold with *nested* emphasis** here.')).toBe(
+      'This is bold with nested emphasis here.',
+    );
+  });
+
+  test('keeps a code span verbatim even when it contains emphasis characters', () => {
+    expect(markdownToPlainText('Check out `*args` and `**kwargs` in Python.')).toBe(
+      'Check out *args and **kwargs in Python.',
+    );
+  });
+
   test('renders links and images as text followed by the url', () => {
     expect(markdownToPlainText('See [our site](https://eonyx.net) today')).toBe(
       'See our site (https://eonyx.net) today',
     );
     expect(markdownToPlainText('![a logo](https://eonyx.net/logo.png)')).toBe(
       'a logo (https://eonyx.net/logo.png)',
+    );
+  });
+
+  test('leaves underscores in urls alone, linked or bare', () => {
+    // The emphasis rule would otherwise eat `_page_` and post a dead link.
+    expect(markdownToPlainText('[read](https://eonyx.net/my_page_name)')).toBe(
+      'read (https://eonyx.net/my_page_name)',
+    );
+    expect(markdownToPlainText('Visit https://eonyx.net/my_page_name today')).toBe(
+      'Visit https://eonyx.net/my_page_name today',
     );
   });
 
