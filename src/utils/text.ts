@@ -60,10 +60,11 @@ function stripInline(text: string): string {
  * Line-oriented rather than a real parser: drafts are prose with headings,
  * bullets and links, and a parser would be a dependency for output nobody
  * round-trips. Known limitation: a bare word carrying two underscores
- * (`snake_case_name`) has the pair between them read as emphasis, so it comes
- * back fused (`snakecase_name`). URLs and code spans — where this would do
- * real damage — are protected in `stripInline`; loose identifiers in prose are
- * not, and do not occur in the drafts this pipeline writes.
+ * (`snake_case_name`) has the pair between them read as emphasis, so both are
+ * consumed and the word comes back fused — `snakecasename`. URLs and code
+ * spans, where this would do real damage, are protected in `stripInline`;
+ * loose identifiers in prose are not, and do not occur in the drafts this
+ * pipeline writes.
  */
 export function markdownToPlainText(md: string): string {
   const out: string[] = [];
