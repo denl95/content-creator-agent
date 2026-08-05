@@ -33,6 +33,17 @@ export async function fetchDraft(id: string): Promise<DraftRow | null> {
   return get<DraftRow>(`/drafts/${id}`);
 }
 
+export type FacebookStatus = { configured: boolean; page_name: string | null };
+
+export async function fetchFacebookStatus(): Promise<FacebookStatus> {
+  return (
+    (await get<FacebookStatus>('/publish/facebook/status')) ?? {
+      configured: false,
+      page_name: null,
+    }
+  );
+}
+
 export async function fetchStats(): Promise<Stats> {
   return (
     (await get<Stats>('/stats')) ?? {
