@@ -30,6 +30,9 @@ describe('messageForCode', () => {
       'run_not_awaiting',
       'notion_not_configured',
       'publish_failed',
+      'facebook_not_configured',
+      'facebook_already_published',
+      'facebook_publish_failed',
     ]) {
       expect(messageForCode(code, uk)).not.toBeNull();
       expect(messageForCode(code, en)).not.toBeNull();

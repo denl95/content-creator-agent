@@ -145,6 +145,13 @@ const uk: Messages = {
     openNotion: 'Відкрити в Notion →',
     publish: 'Опублікувати в Notion',
     publishing: 'Публікація…',
+    openFacebook: 'Відкрити допис у Facebook →',
+    publishFacebook: 'Опублікувати у Facebook',
+    publishingFacebook: 'Публікація…',
+    confirmFacebook: (page: string) => `Опублікувати публічно на ${page}?`,
+    confirmFacebookPost: 'Опублікувати',
+    confirmFacebookCancel: 'Скасувати',
+    facebookUnavailable: 'Facebook не налаштовано на сервері.',
     copy: 'Копіювати markdown',
     copied: 'Скопійовано',
     copyFailed: 'Не вдалося скопіювати. Виділіть текст і скопіюйте вручну.',
@@ -177,6 +184,9 @@ const uk: Messages = {
     runNotAwaiting: 'Цей запуск більше не очікує на затвердження.',
     notionNotConfigured: 'Notion не налаштовано на сервері.',
     publishFailed: 'Не вдалося опублікувати в Notion.',
+    facebookNotConfigured: 'Facebook не налаштовано на сервері.',
+    facebookAlreadyPublished: 'Цю чернетку вже опубліковано у Facebook.',
+    facebookPublishFailed: 'Не вдалося опублікувати у Facebook.',
   },
 };
 
