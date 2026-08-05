@@ -64,7 +64,7 @@ export async function fetchPageName(pageId: string, accessToken: string): Promis
 
 `publishToFacebook` issues `POST https://graph.facebook.com/${FACEBOOK_API_VERSION}/${pageId}/feed` with a form-encoded body carrying `message` and `access_token`. Verified against Meta's live documentation on 2026-08-05: this endpoint, the `pages_manage_posts` permission, and a success body of `{"id": "<pageid>_<postid>"}`.
 
-`FACEBOOK_API_VERSION` is a constant in `src/constants.ts` defaulting to `v25.0` (current as of February 2026) and overridable by env, so a Meta deprecation is a config change rather than a code change.
+`FACEBOOK_API_VERSION` is a constant in `src/constants.ts` defaulting to `v26.0` (current as of 29 July 2026) and overridable by env, so a Meta deprecation is a config change rather than a code change.
 
 The post URL is `https://www.facebook.com/{id}`, built from the returned composite id.
 
@@ -154,7 +154,7 @@ The component fetches `/api/publish/facebook/status` on mount. When `configured`
 # on a draft). Nothing posts automatically; this is a per-draft manual action.
 FACEBOOK_PAGE_ID=
 FACEBOOK_PAGE_ACCESS_TOKEN=
-FACEBOOK_API_VERSION=v25.0
+FACEBOOK_API_VERSION=v26.0
 ```
 
 With a comment recording the operational constraint: `pages_manage_posts` normally requires App Review and Business Verification, which is avoidable **only** because the operator owns the Page and holds an admin or developer role on the app. A Page token derived from a user token can go stale — password change, session revocation — and this app has no OAuth refresh, so a **System User token from Business Manager**, which does not expire, is the token to use.
