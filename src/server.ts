@@ -11,8 +11,16 @@ import {
   verifySessionCookie,
 } from './auth';
 import { createBrand, getBrand, listBrands, setDefaultBrand, updateBrand } from './brands';
-import { getDb, getDraft, getStats, listDrafts, setDraftNotionUrl } from './db';
+import {
+  getDb,
+  getDraft,
+  getStats,
+  listDrafts,
+  setDraftFacebookUrl,
+  setDraftNotionUrl,
+} from './db';
 import { publishDraft } from './mcp/notion';
+import { fetchPageName, publishToFacebook } from './publishers/facebook';
 import {
   getRun,
   isTerminal,
@@ -23,6 +31,7 @@ import {
   sweepStaleRuns,
 } from './runManager';
 import { BriefSchema } from './schemas';
+import { markdownToPlainText } from './utils/text';
 
 // `edits` is only sent by the brand-review gate, which lets a reviewer correct
 // the distilled guide in place instead of rejecting it outright. The plan gate
@@ -114,6 +123,7 @@ for (const route of [
   '/brands',
   '/brands/*',
   '/stats',
+  '/publish/*',
 ]) {
   app.use(route, requireAuth);
 }
@@ -397,6 +407,109 @@ app.post('/drafts/:id/publish', async (c) => {
     );
   }
 });
+
+/**
+ * A sibling of the Notion route rather than a `destination` parameter on it:
+ * the two have different config checks and different failure modes, and leaving
+ * the working path untouched means it cannot regress.
+ */
+app.post('/drafts/:id/publish/facebook', async (c) => {
+  const draft = await getDraft(c.req.param('id'));
+  if (!draft) return c.json({ error: 'draft_not_found', message: 'draft not found' }, 404);
+
+  const pageId = process.env.FACEBOOK_PAGE_ID;
+  const accessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  if (!pageId || !accessToken) {
+    return c.json(
+      {
+        error: 'facebook_not_configured',
+        message: 'Facebook is not configured (FACEBOOK_PAGE_ID, FACEBOOK_PAGE_ACCESS_TOKEN)',
+      },
+      400,
+    );
+  }
+
+  // Checked before the Graph call, deliberately. A Page post is public and
+  // cannot be recalled from here, so a stale browser tab must not double-post.
+  if (draft.facebook_url) {
+    return c.json(
+      {
+        error: 'facebook_already_published',
+        message: 'this draft has already been posted to Facebook',
+        url: draft.facebook_url,
+      },
+      409,
+    );
+  }
+
+  // The stored-url check above defeats the sequential stale-tab case but not a
+  // double-submit, a retry, or two tabs racing: two requests can both read
+  // `null` before either write lands. `facebookPublishInFlight` closes that gap.
+  if (facebookPublishInFlight.has(draft.id)) {
+    // Reusing `facebook_already_published` deliberately: a new code would need
+    // both locales, an `errors.ts` mapping and an enumeration-test entry, and
+    // from the client's point of view "already being posted" and "already
+    // posted" call for the same message.
+    return c.json(
+      {
+        error: 'facebook_already_published',
+        message: 'a publish for this draft is already in flight',
+      },
+      409,
+    );
+  }
+  facebookPublishInFlight.add(draft.id);
+
+  try {
+    const post = await publishToFacebook({
+      pageId,
+      accessToken,
+      message: markdownToPlainText(draft.content),
+    });
+    await setDraftFacebookUrl(draft.id, post.url);
+    return c.json({ url: post.url });
+  } catch (err) {
+    return c.json(
+      {
+        error: 'facebook_publish_failed',
+        message: err instanceof Error ? err.message : String(err),
+      },
+      502,
+    );
+  } finally {
+    facebookPublishInFlight.delete(draft.id);
+  }
+});
+
+// A Page's name does not change within a process lifetime, so one lookup is
+// enough — and the status route is hit on every draft page render.
+let cachedPageName: string | null = null;
+
+// A Page post is public and cannot be recalled from here, so the stored-url
+// check is not enough on its own: two requests can both pass it before either
+// has written back. `fly.toml` pins a single machine, so an in-process set is a
+// complete guard rather than a partial one.
+const facebookPublishInFlight = new Set<string>();
+
+/**
+ * Lets the dashboard name the Page in its confirmation, and disable the button
+ * outright when Facebook is unconfigured rather than failing after a click.
+ */
+app.get('/publish/facebook/status', async (c) => {
+  const pageId = process.env.FACEBOOK_PAGE_ID;
+  const accessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  if (!pageId || !accessToken) return c.json({ configured: false, page_name: null });
+
+  if (cachedPageName === null) {
+    cachedPageName = await fetchPageName(pageId, accessToken);
+  }
+  return c.json({ configured: true, page_name: cachedPageName ?? pageId });
+});
+
+/** Test seam: the cache is process-wide and would otherwise leak across suites. */
+export function resetFacebookPageNameCache(): void {
+  cachedPageName = null;
+}
 
 // API only — the Next.js app in web/ serves the UI and proxies here via /api/*.
 export default {

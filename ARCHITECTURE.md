@@ -108,11 +108,14 @@ server.ts / cli.ts → runManager → graph → nodes → tools → (db, vector 
 | `src/ingest/fetchers/` | source adapters | `ingest/extract`, `ingest/safety`, `ingest/types`, `activity` | `db`, `runManager` |
 | `src/tools/` | agent-callable tools | `brands`, `activity`, vector backends | `nodes`, `runManager` |
 | `src/prompts/` | prompt text and variables | `schemas`, `utils` | anything with I/O beyond Langfuse |
+| `src/publishers/` | outbound destination adapters | `constants` | `db`, `nodes`, `runManager` |
 | `src/activity.ts` | progress sink registry | **nothing** | everything |
 
 `src/activity.ts` imports nothing at all, and that is load-bearing rather than incidental: tools call `reportActivity`, and a tool importing `runManager` would close the cycle `runManager → graph → nodes → tools → runManager`. Verified: the file has zero import statements.
 
 `src/routing/` holds the pure decisions — `routeAfterEditor` and `deriveVerdict` — so a threshold can be unit-tested without running a graph. `deriveVerdict` exists because asking a model to apply `≥ 0.8` to three numbers produced verdicts contradicting its own scores.
+
+`src/publishers/facebook.ts` calls the Graph API with plain `fetch` while `src/mcp/notion.ts` goes through an MCP server, so the two publishers sit in different directories. That asymmetry is accepted rather than accidental: relocating working Notion code buys tidiness and risks a regression. A third destination is the moment to move Notion into `src/publishers/` and introduce a shared `Publisher` interface — at two, the registry is indirection that makes each publisher harder to read than the flat function it replaces.
 
 ### Documented deviation
 
@@ -122,7 +125,7 @@ This is deliberate and currently harmless: those four modules sit below everythi
 
 ## Cross-cutting concerns
 
-**Authentication — one implementation.** `src/auth.ts` owns the HMAC session token and constant-time comparison. Hono guards `/runs*`, `/drafts*`, `/brands*` and `/stats`; `web/proxy.ts` calls `GET /auth/check` rather than re-deriving the HMAC, so the two cannot drift. Unset `DEMO_PASSWORD` makes both sides a no-op.
+**Authentication — one implementation.** `src/auth.ts` owns the HMAC session token and constant-time comparison. Hono guards `/runs*`, `/drafts*`, `/brands*`, `/publish*` and `/stats`; `web/proxy.ts` calls `GET /auth/check` rather than re-deriving the HMAC, so the two cannot drift. Unset `DEMO_PASSWORD` makes both sides a no-op.
 
 **Tracing and cost.** `src/observability.ts` builds Langfuse callbacks; `src/costTracker.ts` accumulates tokens as a LangChain callback. Every node's inner `.invoke()` must merge the parent config via `mergeConfigs(config, {...})` — without it, callbacks attached at `graph.stream()` silently never fire, which once made cost tracking report `$0` for every run. See `CLAUDE.md` for the full account.
 

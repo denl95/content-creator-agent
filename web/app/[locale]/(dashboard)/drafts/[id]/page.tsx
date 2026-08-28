@@ -1,12 +1,13 @@
 import { notFound } from 'next/navigation';
 import { DraftActions } from '@/components/draft-actions';
+import { FacebookPublishButton } from '@/components/facebook-publish-button';
 import { Markdown } from '@/components/markdown';
 import { PublishButton } from '@/components/publish-button';
 import { StatTile } from '@/components/stat-tile';
 import { VerdictBadge } from '@/components/verdict-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getMessages, type Locale } from '@/i18n/index';
-import { fetchBrands, fetchDraft } from '@/lib/api';
+import { fetchBrands, fetchDraft, fetchFacebookStatus } from '@/lib/api';
 import { formatDate, formatUsd } from '@/lib/format';
 
 function parseIssues(raw: string): string[] {
@@ -26,7 +27,11 @@ export default async function DraftDetailPage({
   // params is a Promise in Next 16.
   const { id, locale } = await params;
   const m = getMessages(locale);
-  const [draft, brands] = await Promise.all([fetchDraft(id), fetchBrands()]);
+  const [draft, brands, facebook] = await Promise.all([
+    fetchDraft(id),
+    fetchBrands(),
+    fetchFacebookStatus(),
+  ]);
   if (!draft) notFound();
 
   const brand = draft.brand_id ? brands.find((b) => b.id === draft.brand_id) : undefined;
@@ -86,18 +91,37 @@ export default async function DraftDetailPage({
         </CardContent>
       </Card>
 
-      {draft.notion_url ? (
-        <a
-          href={draft.notion_url}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-block text-sm underline"
-        >
-          {m.drafts.openNotion}
-        </a>
-      ) : (
-        <PublishButton draftId={draft.id} />
-      )}
+      <div className="flex flex-wrap items-start gap-6">
+        {draft.notion_url ? (
+          <a
+            href={draft.notion_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block text-sm underline"
+          >
+            {m.drafts.openNotion}
+          </a>
+        ) : (
+          <PublishButton draftId={draft.id} />
+        )}
+
+        {draft.facebook_url ? (
+          <a
+            href={draft.facebook_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block text-sm underline"
+          >
+            {m.drafts.openFacebook}
+          </a>
+        ) : (
+          <FacebookPublishButton
+            draftId={draft.id}
+            configured={facebook.configured}
+            pageName={facebook.page_name}
+          />
+        )}
+      </div>
     </div>
   );
 }

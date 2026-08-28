@@ -5,7 +5,7 @@ node_modules
 out
 dist
 *.tgz
-data/app.db
+data/app.db*
 
 # code coverage
 coverage

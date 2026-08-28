@@ -5,6 +5,7 @@ import {
   listDrafts,
   resetDbForTests,
   setDraftCost,
+  setDraftFacebookUrl,
   setDraftNotionUrl,
 } from '../../src/db';
 import { freshDb } from '../helpers/db';
@@ -93,5 +94,35 @@ describe('drafts db', () => {
     expect((await getDraft('b1'))?.brand_id).toBe('brand-xyz');
     await insertDraft(sampleDraft('b2'));
     expect((await getDraft('b2'))?.brand_id).toBeNull();
+  });
+});
+
+describe('setDraftFacebookUrl', () => {
+  test('writes the url onto the row', async () => {
+    await freshDb();
+    await insertDraft({
+      id: 'fb1',
+      topic: 'T',
+      channel: 'blog',
+      tone: 'x',
+      audience: 'y',
+      content: '# Hi',
+      word_count: 1,
+      verdict: 'APPROVED',
+      tone_score: 0.9,
+      accuracy_score: 0.9,
+      structure_score: 0.9,
+      iterations: 1,
+      issues: [],
+    });
+
+    expect((await getDraft('fb1'))?.facebook_url).toBeNull();
+    await setDraftFacebookUrl('fb1', 'https://www.facebook.com/1_2');
+    expect((await getDraft('fb1'))?.facebook_url).toBe('https://www.facebook.com/1_2');
+  });
+
+  test('is a silent no-op for a missing row, not a P2025 throw', async () => {
+    await freshDb();
+    await setDraftFacebookUrl('nope', 'https://www.facebook.com/1_2');
   });
 });

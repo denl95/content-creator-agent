@@ -149,6 +149,13 @@ const en = {
     openNotion: 'Open in Notion →',
     publish: 'Publish to Notion',
     publishing: 'Publishing…',
+    openFacebook: 'Open Facebook post →',
+    publishFacebook: 'Publish to Facebook',
+    publishingFacebook: 'Posting…',
+    confirmFacebook: (page: string) => `Post publicly to ${page}?`,
+    confirmFacebookPost: 'Post',
+    confirmFacebookCancel: 'Cancel',
+    facebookUnavailable: 'Facebook is not configured on the server.',
     copy: 'Copy markdown',
     copied: 'Copied',
     copyFailed: 'Could not copy. Select the text and copy it manually.',
@@ -181,6 +188,9 @@ const en = {
     runNotAwaiting: 'This run is no longer waiting for approval.',
     notionNotConfigured: 'Notion is not configured on the server.',
     publishFailed: 'Publishing to Notion failed.',
+    facebookNotConfigured: 'Facebook is not configured on the server.',
+    facebookAlreadyPublished: 'This draft has already been posted to Facebook.',
+    facebookPublishFailed: 'Posting to Facebook failed.',
   },
 };
 

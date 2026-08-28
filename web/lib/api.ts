@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import type { Brand, BrandDetail, DraftRow } from './types';
+import type { Brand, BrandDetail, DraftRow, FacebookStatus } from './types';
 
 const API_ORIGIN = process.env.API_ORIGIN ?? 'http://localhost:3000';
 
@@ -31,6 +31,15 @@ export async function fetchDrafts(): Promise<DraftRow[]> {
 
 export async function fetchDraft(id: string): Promise<DraftRow | null> {
   return get<DraftRow>(`/drafts/${id}`);
+}
+
+export async function fetchFacebookStatus(): Promise<FacebookStatus> {
+  return (
+    (await get<FacebookStatus>('/publish/facebook/status')) ?? {
+      configured: false,
+      page_name: null,
+    }
+  );
 }
 
 export async function fetchStats(): Promise<Stats> {

@@ -88,6 +88,7 @@ export type DraftRow = {
   issues: string;
   cost_usd: number | null;
   notion_url: string | null;
+  facebook_url: string | null;
   created_at: string;
 };
 
@@ -100,6 +101,9 @@ export type BrandDocument = {
 };
 
 export type BrandDetail = Brand & { documents: BrandDocument[] };
+
+/** Mirrors the response of `GET /publish/facebook/status` in `src/server.ts`. */
+export type FacebookStatus = { configured: boolean; page_name: string | null };
 
 export type BrandProfilePayload = {
   name: string;

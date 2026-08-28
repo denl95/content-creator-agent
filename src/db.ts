@@ -17,13 +17,14 @@ export type DraftRow = {
   issues: string;
   cost_usd: number | null;
   notion_url: string | null;
+  facebook_url: string | null;
   created_at: string;
   brand_id: string | null;
 };
 
 export type NewDraft = Omit<
   DraftRow,
-  'issues' | 'cost_usd' | 'notion_url' | 'created_at' | 'brand_id'
+  'issues' | 'cost_usd' | 'notion_url' | 'facebook_url' | 'created_at' | 'brand_id'
 > & {
   issues: string[];
   brand_id?: string | null;
@@ -63,6 +64,7 @@ type PrismaDraft = {
   issues: string;
   costUsd: number | null;
   notionUrl: string | null;
+  facebookUrl: string | null;
   createdAt: Date;
   brandId: string | null;
 };
@@ -90,6 +92,7 @@ function toDraftRow(d: PrismaDraft): DraftRow {
     issues: d.issues,
     cost_usd: d.costUsd,
     notion_url: d.notionUrl,
+    facebook_url: d.facebookUrl,
     created_at: d.createdAt.toISOString().replace('T', ' ').slice(0, 19),
     brand_id: d.brandId,
   };
@@ -132,6 +135,10 @@ export async function getDraft(id: string): Promise<DraftRow | null> {
 // row must not turn a finished run into an errored one.
 export async function setDraftNotionUrl(id: string, url: string): Promise<void> {
   await getDb().draft.updateMany({ where: { id }, data: { notionUrl: url } });
+}
+
+export async function setDraftFacebookUrl(id: string, url: string): Promise<void> {
+  await getDb().draft.updateMany({ where: { id }, data: { facebookUrl: url } });
 }
 
 export async function setDraftCost(id: string, costUsd: number): Promise<void> {

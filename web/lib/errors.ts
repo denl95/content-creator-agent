@@ -22,6 +22,9 @@ const CODES: Record<string, (m: Messages) => string> = {
   run_not_awaiting: (m) => m.errors.runNotAwaiting,
   notion_not_configured: (m) => m.errors.notionNotConfigured,
   publish_failed: (m) => m.errors.publishFailed,
+  facebook_not_configured: (m) => m.errors.facebookNotConfigured,
+  facebook_already_published: (m) => m.errors.facebookAlreadyPublished,
+  facebook_publish_failed: (m) => m.errors.facebookPublishFailed,
 };
 
 /** Null when the code is unknown, so the caller can fall back to server prose. */
